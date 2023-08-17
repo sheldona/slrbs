@@ -109,6 +109,7 @@ void SimViewer::start()
     // initialize
     polyscope::init();
 
+    // Setup a viewing volume.
     polyscope::options::automaticallyComputeSceneExtents = false;
     polyscope::state::lengthScale = 10.0f;
     polyscope::state::boundingBox = std::tuple<glm::vec3, glm::vec3>{ {-5., 0, -5.}, {5., 5., 5.} };
@@ -119,11 +120,8 @@ void SimViewer::start()
     // Add pre-step hook.
     m_rigidBodySystem->setPreStepFunc(std::bind(&SimViewer::preStep, this, std::placeholders::_1));
 
-    //createSphereThrowing();
-
     // Show the window
     polyscope::show();
-
 
 }
 
@@ -154,7 +152,6 @@ void SimViewer::drawGUI()
     if (ImGui::Button("Sphere on box")) {
         createSphereOnBox();
     }
-
     if (ImGui::Button("Marble box")) {
         createMarbleBox();
     }
@@ -163,9 +160,6 @@ void SimViewer::drawGUI()
     }
     if (ImGui::Button("Cylinder on plane")) {
         createCylinderOnPlane();
-    }
-    if (ImGui::Button("Create sphere throwing scene")) {
-        createSphereThrowing();
     }
     if (ImGui::Button("Create car scene")) {
         createCarScene();
@@ -226,13 +220,7 @@ void SimViewer::createCarScene()
     updateRigidBodyMeshes(*m_rigidBodySystem);
 }
 
-void SimViewer::createSphereThrowing()
-{
-    Scenarios::createSphereThrowing(*m_rigidBodySystem);
-    updateRigidBodyMeshes(*m_rigidBodySystem);
-}
-
 void SimViewer::preStep(std::vector<RigidBody*>& _bodies)
 {
-
+    // do something useful here?
 }

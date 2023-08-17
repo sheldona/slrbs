@@ -19,8 +19,7 @@ public:
     // Sets the maximum number of iterations for the solver method.
     // 
     // The behavior will change based on the specific algorithm.
-    // e.g., for PGS, this changes the number of iterations
-    // for the BPP algorithm, this changes the number of pivoting step.
+    // e.g., for PGS this changes the number of iterations
     //
     void setMaxIter(int _maxIter) { m_maxIter = _maxIter; }
 

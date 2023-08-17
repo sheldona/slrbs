@@ -14,7 +14,6 @@ namespace polyscope
     class SurfaceMesh;
 }
 
-
 // Rigid body class.
 // Stores properties for rigid body simulation, including
 // the geometry and list of contact constraints.
@@ -27,7 +26,11 @@ public:
     static int counter;
 
     void updateInertiaMatrix();
+
+    // Adds @a force at the specific world position @a pos. 
     void addForceAtPos(const Eigen::Vector3f& pos, const Eigen::Vector3f& force);
+
+    // Returns the rigid body linear velocity evaluated at world position @a pos
     void getVelocityAtPos(const Eigen::Vector3f& pos, Eigen::Vector3f& vel);
 
     bool fixed;                         // Flag for a static rigid body. Default is 'false'.

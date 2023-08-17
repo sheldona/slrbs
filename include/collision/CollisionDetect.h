@@ -28,11 +28,13 @@ public:
 
     void clear();
 
-    // Compute the Jacobians for contacts
+    // Compute the Jacobians for contacts.
     void computeContactJacobians();
 
+    // Returns all contacts following the current collision detection pass (read-only).
     const std::vector<Contact*>& getContacts() const { return m_contacts; }
 
+    // Returns all contacts following the current collision detection pass.
     std::vector<Contact*>& getContacts() { return m_contacts; }
 
 private:
@@ -50,7 +52,7 @@ private:
 
 private:
 
-    RigidBodySystem* m_rigidBodySystem;
-    std::vector<Contact*> m_contacts;
+    RigidBodySystem* m_rigidBodySystem;                 // The rigid body system.
+    std::vector<Contact*> m_contacts;                   // Cached array of contacts.
 
 };

@@ -7,7 +7,7 @@ std::map<unsigned int, Mesh> MeshAssetRegistry::m_meshCache = std::map<unsigned 
 
 Mesh* MeshAssetRegistry::loadObj(const std::string& _filename)
 {
-    unsigned int key = std::hash<std::string>{}(_filename);
+    const unsigned int key = std::hash<std::string>{}(_filename);
     auto cacheItr = m_meshCache.find(key);
 
     if( cacheItr != m_meshCache.end() )

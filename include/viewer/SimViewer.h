@@ -30,21 +30,11 @@ public:
     void reset();
 
 private:
-    void setTimestep(float);
-    void setSubsteps(int);
-    void setMaxIterations(int);
-    void setFrictionCoefficient(float);
-    void setContactStiffness(float);
-    void setContactDamping(float);
-    void setPaused(bool);
-    void stepOnce();
-
     void createMarbleBox();
     void createSphereOnBox();
     void createSwingingBox();
     void createCylinderOnPlane();
     void createCarScene();
-    void createSphereThrowing();
 
     void draw();
     void drawGUI();

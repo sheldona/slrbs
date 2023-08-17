@@ -161,39 +161,8 @@ public:
         rigidBodySystem.addBody(plane);
     }
 
-
-    // Sphere throwing example.  
-    // This example was mostly used to test the autodiff optimization of an initial value problem.
-    //
-    static void createSphereThrowing(RigidBodySystem& rigidBodySystem)
-    {
-        rigidBodySystem.clear();
-        polyscope::removeAllStructures();
-
-        std::cout << "Loading sphere throwing scenario." << std::endl;
-
-        // Create a sphere.
-        RigidBody* sphere = new RigidBody(1.0f, new Sphere(0.5f), "resources/sphere.obj");
-        sphere->x = { 0.0f, 2.0f, 0.0f };
-        sphere->xdot = { -10.0f, 0.0f, 10.0f };
-
-        // Create another sphere.
-        RigidBody* sphere2 = new RigidBody(1.0f, new Sphere(0.5f), "resources/sphere.obj");
-        sphere2->x = { 5.0f, 4.0f, 0.0f };
-        sphere2->fixed = true;
-
-        // Create a second box.
-        RigidBody* plane = new RigidBody(1.0f, new Plane({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }), "");
-        plane->x = { 0.0f, 0.0f, 0.0f };
-        plane->fixed = true;
-
-        rigidBodySystem.addBody(sphere);
-        rigidBodySystem.addBody(sphere2);
-        rigidBodySystem.addBody(plane);
-    }
-
     // Box hanging from a box
-//
+    //
     static void createCarScene(RigidBodySystem& rigidBodySystem)
     {
         rigidBodySystem.clear();

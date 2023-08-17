@@ -54,6 +54,8 @@ void RigidBodySystem::step(float dt)
         m_preStepFunc(m_bodies);
     }
 
+    m_collisionDetect->clear();
+
     if (m_collisionsEnabled)
     {
         m_collisionDetect->detectCollisions();

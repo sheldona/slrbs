@@ -12,6 +12,5 @@ int main(int argc, char* argv[])
     SimViewer app;
     app.start();
 
-
     return 0;
 }

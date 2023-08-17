@@ -16,8 +16,8 @@ class RigidBody;
 //
 class Contact : public Joint
 {
-public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+public: 
+    static float mu;            // Coefficient of friction (global)
 
 public:
 
@@ -26,12 +26,12 @@ public:
 
     virtual ~Contact();
 
-    virtual eConstraintType getType() const { return kContact; }
+    virtual eConstraintType getType() const override { return kContact; }
 
     Eigen::Vector3f p;          // The contact point.
     Eigen::Vector3f n;          // The contact normal.
     Eigen::Vector3f t, b;       // Tangent directions.
-    float pene;                   // Penetration
+    float pene;                 // Penetration
 
     virtual void computeJacobian();
 
@@ -43,10 +43,8 @@ public:
 
     unsigned int index;         // Auxiliary variable used for global indexing
 
-    static float mu;            // Coefficient of friction (global)
-
 protected:
 
-    // Default constructor.
+    // Default constructor (hidden)
     explicit Contact();
 };

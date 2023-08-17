@@ -53,9 +53,11 @@ class Box : public Geometry
 public:
     Eigen::Vector3f dim;        // Box dimensions.
 
-    Box(const Eigen::Vector3f& _dim) : dim(_dim) {
+    Box(const Eigen::Vector3f& _dim) : dim(_dim) 
+    {
 
     }
+
     virtual ~Box() {}
 
     virtual Eigen::Matrix3f computeInertia(float _mass) override
@@ -79,9 +81,11 @@ class Cylinder : public Geometry
 public:
     float height, radius;        // Cylinder height and radius
 
-    Cylinder(float _height, float _radius) : height(_height), radius(_radius) {
+    Cylinder(float _height, float _radius) : height(_height), radius(_radius) 
+    {
 
     }
+
     virtual ~Cylinder() {}
 
     virtual Eigen::Matrix3f computeInertia(float _mass) override
@@ -115,7 +119,7 @@ public:
 
     virtual Eigen::Matrix3f computeInertia(float _mass) override
     {
-        m_I.setZero();  // ignore inertia, should only be used for static objects.
+        m_I.setZero();  // Ignore inertia. Plane should only be used for static objects.
         return m_I;
     }
 

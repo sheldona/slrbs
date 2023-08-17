@@ -26,10 +26,6 @@ CollisionDetect::CollisionDetect(RigidBodySystem* rigidBodySystem) : m_rigidBody
 
 void CollisionDetect::detectCollisions()
 {
-    // First, clear any existing contacts.
-    //
-    clear();
-
     // Next, loop over all pairs of bodies and test for contacts.
     //
     auto bodies = m_rigidBodySystem->getBodies();
