@@ -118,4 +118,5 @@ bool OBJLoader::load(const std::string& filename, Eigen::MatrixXf& meshV, Eigen:
 
 	// Close file
 	file.close();
+	return true;
 }
