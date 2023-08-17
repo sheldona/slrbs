@@ -17,13 +17,6 @@ namespace
 		float x, y, z;
 	};
 
-	struct TriangleInds
-	{
-		TriangleInds() : i(0), j(0), k(0) {}
-
-		int i, j, k;
-	};
-
 	// Extract path from a string
 	std::string extractPath(const std::string& filepathname)
 	{
@@ -56,7 +49,7 @@ bool OBJLoader::load(const std::string& filename, Eigen::MatrixXf& meshV, Eigen:
 
 	// Read file
 	std::string line;
-	while (std::getline(file, line))
+    while (std::getline(file, line))
 	{
 		if (line[0] == '#')
 		{

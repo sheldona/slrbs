@@ -46,9 +46,9 @@ public:
 
     std::unique_ptr<Geometry> geometry; // The geometry of the rigid body.
     std::vector<Contact*> contacts;     // Pointer array of contact constraints involving this body.
-    std::vector<Joint*> joints;     // Pointer array of contact constraints involving this body.
+    std::vector<Joint*> joints;         // Pointer array of joints involving this body.
 
-    polyscope::SurfaceMesh* mesh;                         // Used for rendering
+    polyscope::SurfaceMesh* mesh;       // Used for rendering
 
 
 };
