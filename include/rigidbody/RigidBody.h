@@ -2,6 +2,7 @@
 
 #include "collision/Geometry.h"
 #include "util/Types.h"
+#include <memory>
 #include <vector>
 
 class Contact;
