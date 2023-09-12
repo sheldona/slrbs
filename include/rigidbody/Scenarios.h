@@ -9,14 +9,6 @@
 #include <cstdlib>
 #include <Eigen/Dense>
 
-namespace 
-{
-    static inline float randFloat(float min, float max)
-    {
-        return ((float)std::rand() / RAND_MAX) * (max - min) + min;
-    }
-}
-
 class Scenarios
 {
 public:
@@ -111,30 +103,40 @@ public:
 
     // Box hanging from a box
     //
-    static void createSwingingBox(RigidBodySystem& rigidBodySystem)
+    static void createSwingingBoxes(RigidBodySystem& rigidBodySystem)
     {
         rigidBodySystem.clear();
         polyscope::removeAllStructures();
 
-        std::cout << "Loading swinging sphere scenario." << std::endl;
+        std::cout << "Loading swinging boxes scenario." << std::endl;
+
+        const int N = 20;
 
         // Create a box.
-        RigidBody* bodyBox = new RigidBody(1.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
-        bodyBox->x = { 0.0f, 5.0f, 0.0f };
-        bodyBox->fixed = true;
+        RigidBody* topBox = new RigidBody(1.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
+        topBox->x = { 0.0f, 1.5f*(float)N, 0.0f };
+        topBox->fixed = true;
+        rigidBodySystem.addBody(topBox);
 
-        // Create a second box.
-        RigidBody* bodyBox2 = new RigidBody(1.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
-        bodyBox2->x = { 0.0f, 2.0f, 0.0f };
-        bodyBox2->xdot = { 5.0f, 2.0f, 2.0f };
-        bodyBox2->omega = { 0.0f, 10.0f, 0.0f };
+        RigidBody* parent = topBox;
+        for (int i = 0; i < N-1; ++i)
+        {
+            // Create the next box in the chain.
+            RigidBody* nextBox = nullptr;
+            if( i == (N-2) ) nextBox = new RigidBody(100.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
+            else nextBox = new RigidBody(1.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
+            nextBox->x = parent->x - Eigen::Vector3f(0.0f, 1.5f, 0.0f);
 
-        // Add a hinge between them
-        Joint* j = new Hinge(bodyBox, bodyBox2, { 0.0f, 0.0f, 0.0f }, Eigen::Quaternionf::Identity(), { 0.0f, 3.0f, 0.0f }, Eigen::Quaternionf::Identity());
+            // Add a hinge between parent->nextBox
+            Joint* j = new Hinge(parent, nextBox, { 0.0f, 0.0f, 0.0f }, Eigen::Quaternionf::Identity(), { 0.0f, 1.5f, 0.0f }, Eigen::Quaternionf::Identity());
 
-        rigidBodySystem.addBody(bodyBox);
-        rigidBodySystem.addBody(bodyBox2);
-        rigidBodySystem.addJoint(j);
+            // Add new box and hinge to the rigid body system.
+            rigidBodySystem.addBody(nextBox);
+            rigidBodySystem.addJoint(j);
+            parent = nextBox;
+        }
+
+        parent->xdot = { 0.0f, 0.0, 10.0f };
     }
 
 

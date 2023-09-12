@@ -20,13 +20,16 @@ public:
     virtual ~Joint() { }
 
     RigidBody* body0;           //< The first body
-    RigidBody* body1;           //< The second boy
+    RigidBody* body1;           //< The second body
     JBlock J0;                  //< The Jacobian of body0
     JBlock J1;                  //< The Jacobian of body1
     JBlock J0Minv;
     JBlock J1Minv;
     Eigen::VectorXf phi;        //< Contraint error
     Eigen::VectorXf lambda;     //< Constraint impulse
+    
+    unsigned int idx;           //< Used for solver indexing.
+    unsigned int dim;           //< Number of constraint equations.
 
     virtual eConstraintType getType() const = 0;
 

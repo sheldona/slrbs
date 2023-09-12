@@ -41,8 +41,6 @@ public:
     //
     void computeContactFrame();
 
-    unsigned int index;         // Auxiliary variable used for global indexing
-
 protected:
 
     // Default constructor (hidden)

@@ -53,13 +53,13 @@ public:
     void setEnableCollisionDetection(bool _enableCollisions) { m_collisionsEnabled = _enableCollisions;  }
 
     int solverIter;
+    int solverId; // PGS = 0, Conj. Gradient = 1, Conj. Residual = 2
 
 private:
 
     std::vector<RigidBody*> m_bodies;
     std::vector<Joint*> m_joints;
     std::unique_ptr<CollisionDetect> m_collisionDetect;
-    Solver* m_solver;
 
     bool m_collisionsEnabled;
 

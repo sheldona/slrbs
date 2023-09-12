@@ -28,8 +28,12 @@ set(contact_HEADERS include/contact/Contact.h )
 set(contact_SOURCE src/contact/Contact.cpp )
 
 set(solver_HEADERS include/solvers/Solver.h 
-                   include/solvers/SolverBoxPGS.h )
-set(solver_SOURCE src/solvers/SolverBoxPGS.cpp )
+                   include/solvers/SolverBoxPGS.h
+				   include/solvers/SolverConjGradient.h
+				   include/solvers/SolverConjResidual.h)
+set(solver_SOURCE src/solvers/SolverBoxPGS.cpp
+				  src/solvers/SolverConjGradient.cpp
+	              src/solvers/SolverConjResidual.cpp)
 
 set(util_HEADERS include/util/OBJLoader.h
                  include/util/MeshAssets.h
