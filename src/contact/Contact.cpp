@@ -3,15 +3,16 @@
 
 float Contact::mu = 0.8f;
 
-Contact::Contact() : Joint(), p(), n(), t(), b(), index(-1)
+Contact::Contact() : Joint(), p(), n(), t(), b()
 {
 
 }
 
 Contact::Contact(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _p, const Eigen::Vector3f& _n, float _pene) :
     Joint(_body0, _body1),
-    p(_p), n(_n), t(), b(), pene(_pene), index(-1)
+    p(_p), n(_n), t(), b(), pene(_pene)
 {
+    dim = 3;
     J0.setZero(3, 6);
     J1.setZero(3, 6);
     J0Minv.setZero(3, 6);

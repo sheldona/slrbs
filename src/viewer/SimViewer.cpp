@@ -7,6 +7,7 @@
 #include "polyscope/view.h"
 #include "imgui.h"
 
+#include <chrono>
 #include <iostream>
 #include <functional>
 
@@ -70,8 +71,8 @@ namespace
 }
 
 SimViewer::SimViewer() :
-    m_dt(0.01f), m_subSteps(1),
-    m_paused(true), m_stepOnce(false), m_enableCollisions(true)
+    m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
+    m_paused(true), m_stepOnce(false), m_enableCollisions(true), m_enableScreenshots(false)
 {
 
     reset();
@@ -88,13 +89,16 @@ void SimViewer::reset()
 
     m_rigidBodySystem->clear();
     polyscope::removeAllStructures();
+    polyscope::resetScreenshotIndex();
+
+    m_dynamicsTime = 0.0f;
 }
 
 
 void SimViewer::start()
 {
     // Setup Polyscope
-    polyscope::options::programName = "Rigid Body Tutorial";
+    polyscope::options::programName = "slrbs";
     polyscope::options::verbosity = 0;
     polyscope::options::usePrefsFile = false;
     polyscope::options::alwaysRedraw = true;
@@ -105,6 +109,7 @@ void SimViewer::start()
     polyscope::options::buildGui = false;
     polyscope::options::maxFPS = -1;
     polyscope::options::groundPlaneEnabled = true;
+    polyscope::options::screenshotExtension = ".png";
 
     // initialize
     polyscope::init();
@@ -143,11 +148,16 @@ void SimViewer::drawGUI()
     ImGui::SliderInt("Num. sub-steps", &m_subSteps, 1, 20, "%u");
     ImGui::SliderInt("Solver iters.", &(m_rigidBodySystem->solverIter), 1, 100, "%u");
     ImGui::SliderFloat("Friction coeff.", &(Contact::mu), 0.0f, 2.0f, "%.2f");
+    ImGui::RadioButton("PGS", &(m_rigidBodySystem->solverId), 0);  ImGui::SameLine();
+    ImGui::RadioButton("Conj. Gradient", &(m_rigidBodySystem->solverId), 1);
+    ImGui::RadioButton("Conj. Residual", &(m_rigidBodySystem->solverId), 2);
     ImGui::PopItemWidth();
 
     if (ImGui::Checkbox("Enable collision detecton", &m_enableCollisions)) {
         m_rigidBodySystem->setEnableCollisionDetection(m_enableCollisions);
     }
+
+    ImGui::Checkbox("Enable screenshots", &m_enableScreenshots);
 
     if (ImGui::Button("Sphere on box")) {
         createSphereOnBox();
@@ -165,6 +175,8 @@ void SimViewer::drawGUI()
         createCarScene();
     }
 
+    ImGui::Text("Step time: %3.3f ms", m_dynamicsTime);
+
 }
 
 void SimViewer::draw()
@@ -173,6 +185,8 @@ void SimViewer::draw()
 
     if( !m_paused || m_stepOnce )
     {
+        auto start = std::chrono::high_resolution_clock::now();
+
         // Step the simulation.
         // The time step dt is divided by the number of sub-steps.
         //
@@ -181,9 +195,18 @@ void SimViewer::draw()
         {
             m_rigidBodySystem->step(dt);
         }
+        auto stop = std::chrono::high_resolution_clock::now();
 
         updateRigidBodyMeshes(*m_rigidBodySystem);
         updateContactPoints(*m_rigidBodySystem);
+
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+        m_dynamicsTime = (float)duration.count() / 1000.0f;
+
+        if (m_enableScreenshots)
+        {
+            polyscope::screenshot(false);
+        }
 
         // Clear step-once flag.
         m_stepOnce = false;
@@ -194,30 +217,36 @@ void SimViewer::createMarbleBox()
 {
     Scenarios::createMarbleBox(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+
 }
 
 void SimViewer::createSphereOnBox()
 {
     Scenarios::createSphereOnBox(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
 }
 
 void SimViewer::createSwingingBox()
 {
-    Scenarios::createSwingingBox(*m_rigidBodySystem);
+    Scenarios::createSwingingBoxes(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
 }
 
 void SimViewer::createCylinderOnPlane()
 {
     Scenarios::createCylinderOnPlane(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
 }
 
 void SimViewer::createCarScene()
 {
     Scenarios::createCarScene(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
 }
 
 void SimViewer::preStep(std::vector<RigidBody*>& _bodies)

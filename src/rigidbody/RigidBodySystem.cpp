@@ -5,12 +5,22 @@
 #include "rigidbody/RigidBody.h"
 
 #include "solvers/SolverBoxPGS.h"
+#include "solvers/SolverConjGradient.h"
+#include "solvers/SolverConjResidual.h"
+
+namespace
+{
+    static Solver* s_solvers[3] = { nullptr, nullptr, nullptr };
+
+}
 
 RigidBodySystem::RigidBodySystem() :
-    solverIter(10), m_preStepFunc(nullptr), m_resetFunc(nullptr), m_collisionsEnabled(true)
+    solverIter(10), solverId(0), m_preStepFunc(nullptr), m_resetFunc(nullptr), m_collisionsEnabled(true)
 {
     m_collisionDetect = std::make_unique<CollisionDetect>(this);
-    m_solver = new SolverBoxPGS(this);
+    s_solvers[0] = new SolverBoxPGS(this);
+    s_solvers[1] = new SolverConjGradient(this);
+    s_solvers[2] = new SolverConjResidual(this);
 }
 
 RigidBodySystem::~RigidBodySystem()
@@ -160,8 +170,8 @@ void RigidBodySystem::calcConstraintForces(float dt)
 {
     // Solve for the constraint forces lambda
     //
-    m_solver->setMaxIter(solverIter);
-    m_solver->solve(dt);
+    s_solvers[solverId]->setMaxIter(solverIter);
+    s_solvers[solverId]->solve(dt);
 
 
     for (const auto j : m_joints)
@@ -201,4 +211,3 @@ void RigidBodySystem::calcConstraintForces(float dt)
         }
     }
 }
-

@@ -22,6 +22,7 @@ Spherical::Spherical() : Joint(), r0(), r1()
 Spherical::Spherical(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _r0, const Eigen::Vector3f& _r1) : Joint(_body0, _body1),
     r0(_r0), r1(_r1)
 {
+    dim = 3;
     J0.setZero(3, 6);
     J1.setZero(3, 6);
     J0Minv.setZero(3, 6);

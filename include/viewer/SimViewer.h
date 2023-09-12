@@ -49,4 +49,6 @@ private:
     bool m_paused;                      // Pause the simulation.
     bool m_stepOnce;                    // Advance the simulation by one frame and then stop.
     bool m_enableCollisions;            // enable/disable collisions
+    bool m_enableScreenshots;           // enable/disable saving screenshots
+    float m_dynamicsTime;               // Compute time for the dynamics step (in ms)
 };
