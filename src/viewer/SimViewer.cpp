@@ -13,6 +13,7 @@
 
 #include "contact/Contact.h"
 #include "rigidbody/RigidBodySystem.h"
+#include "rigidbody/RigidBodyState.h"
 #include "rigidbody/Scenarios.h"
 
 using namespace std;
@@ -72,11 +73,12 @@ namespace
 
 SimViewer::SimViewer() :
     m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
-    m_paused(true), m_stepOnce(false), m_enableCollisions(true), m_enableScreenshots(false)
+    m_paused(true), m_stepOnce(false),
+    m_enableCollisions(true), m_enableScreenshots(false),
+    m_resetState()
 {
-
+    m_resetState = std::make_unique<RigidBodySystemState>(*m_rigidBodySystem);
     reset();
-
 }
 
 SimViewer::~SimViewer()
@@ -86,14 +88,18 @@ SimViewer::~SimViewer()
 void SimViewer::reset()
 {
     std::cout << " ---- Reset ----- " << std::endl;
-
-    m_rigidBodySystem->clear();
-    polyscope::removeAllStructures();
-    polyscope::resetScreenshotIndex();
-
+    m_resetState->restore(*m_rigidBodySystem);
     m_dynamicsTime = 0.0f;
+
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
 }
 
+void SimViewer::save()
+{
+    std::cout << " ---- Saving current state ----- " << std::endl;
+    m_resetState->save(*m_rigidBodySystem);
+}
 
 void SimViewer::start()
 {
@@ -140,7 +146,9 @@ void SimViewer::drawGUI()
     }
     if (ImGui::Button("Reset")) {
         reset();
-
+    }
+    if (ImGui::Button("Save")) {
+        save();
     }
 
     ImGui::PushItemWidth(100);
@@ -149,8 +157,8 @@ void SimViewer::drawGUI()
     ImGui::SliderInt("Solver iters.", &(m_rigidBodySystem->solverIter), 1, 100, "%u");
     ImGui::SliderFloat("Friction coeff.", &(Contact::mu), 0.0f, 2.0f, "%.2f");
     ImGui::RadioButton("PGS", &(m_rigidBodySystem->solverId), 0);  ImGui::SameLine();
-    ImGui::RadioButton("Conj. Gradient", &(m_rigidBodySystem->solverId), 1);
-    ImGui::RadioButton("Conj. Residual", &(m_rigidBodySystem->solverId), 2);
+    ImGui::RadioButton("Conj. Gradient (NO CONTACT)", &(m_rigidBodySystem->solverId), 1);
+    ImGui::RadioButton("Conj. Residual (NO CONTACT)", &(m_rigidBodySystem->solverId), 2);
     ImGui::PopItemWidth();
 
     if (ImGui::Checkbox("Enable collision detecton", &m_enableCollisions)) {
@@ -216,14 +224,15 @@ void SimViewer::draw()
 void SimViewer::createMarbleBox()
 {
     Scenarios::createMarbleBox(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
-
 }
 
 void SimViewer::createSphereOnBox()
 {
     Scenarios::createSphereOnBox(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }
@@ -231,6 +240,7 @@ void SimViewer::createSphereOnBox()
 void SimViewer::createSwingingBox()
 {
     Scenarios::createSwingingBoxes(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }
@@ -238,6 +248,7 @@ void SimViewer::createSwingingBox()
 void SimViewer::createCylinderOnPlane()
 {
     Scenarios::createCylinderOnPlane(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }
@@ -245,6 +256,7 @@ void SimViewer::createCylinderOnPlane()
 void SimViewer::createCarScene()
 {
     Scenarios::createCarScene(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }

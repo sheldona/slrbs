@@ -8,6 +8,7 @@
  */
 
 #include "util/Types.h"
+#include <memory>
 #include <vector>
 
 namespace polyscope
@@ -19,6 +20,9 @@ namespace polyscope
 class Contact;
 class RigidBodySystem;
 class RigidBody;
+class RigidBodyState;
+class RigidBodySystemState;
+
 
 class SimViewer 
 {
@@ -28,6 +32,7 @@ public:
 
     void start();
     void reset();
+    void save();
 
 private:
     void createMarbleBox();
@@ -51,4 +56,6 @@ private:
     bool m_enableCollisions;            // enable/disable collisions
     bool m_enableScreenshots;           // enable/disable saving screenshots
     float m_dynamicsTime;               // Compute time for the dynamics step (in ms)
+    std::unique_ptr<RigidBodySystemState> m_resetState;
+
 };

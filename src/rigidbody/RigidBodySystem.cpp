@@ -10,12 +10,20 @@
 
 namespace
 {
+    // 0 = PGS
+    // 1 = Conjugate Gradient
+    // 2 = Conjugate residual
+    //
     static Solver* s_solvers[3] = { nullptr, nullptr, nullptr };
 
 }
 
 RigidBodySystem::RigidBodySystem() :
-    solverIter(10), solverId(0), m_preStepFunc(nullptr), m_resetFunc(nullptr), m_collisionsEnabled(true)
+    solverIter(10), 
+    solverId(0), 
+    m_preStepFunc(nullptr), 
+    m_resetFunc(nullptr), 
+    m_collisionsEnabled(true)
 {
     m_collisionDetect = std::make_unique<CollisionDetect>(this);
     s_solvers[0] = new SolverBoxPGS(this);

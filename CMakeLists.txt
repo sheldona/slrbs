@@ -12,9 +12,11 @@ set(collision_HEADERS include/collision/CollisionDetect.h
 set(collision_SOURCE src/collision/CollisionDetect.cpp ) 
 
 set(rigidbody_HEADERS include/rigidbody/RigidBody.h
+					  include/rigidbody/RigidBodyState.h
                       include/rigidbody/RigidBodySystem.h 
                       include/rigidbody/Scenarios.h )
 set(rigidbody_SOURCE src/rigidbody/RigidBody.cpp 
+					 src/rigidbody/RigidBodyState.cpp
                      src/rigidbody/RigidBodySystem.cpp )
 
 set(joint_HEADERS include/joint/Joint.h
