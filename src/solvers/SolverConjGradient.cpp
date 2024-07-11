@@ -106,7 +106,7 @@ SolverConjGradient::SolverConjGradient(RigidBodySystem* _rigidBodySystem) : Solv
 
 }
 
-void SolverConjGradient::solve(float h)
+void SolverConjGradient::solve(float h, int substeps)
 {
     const auto& bodies = m_rigidBodySystem->getBodies();
     const auto& joints = m_rigidBodySystem->getJoints();

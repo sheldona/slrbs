@@ -123,7 +123,7 @@ public:
         {
             // Create the next box in the chain.
             RigidBody* nextBox = nullptr;
-            if( i == (N-2) ) nextBox = new RigidBody(100.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
+            if( i == (N-2) ) nextBox = new RigidBody(10000.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
             else nextBox = new RigidBody(1.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
             nextBox->x = parent->x - Eigen::Vector3f(0.0f, 1.5f, 0.0f);
 

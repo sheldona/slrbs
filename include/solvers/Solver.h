@@ -34,7 +34,7 @@ public:
     // Output:
     //   Constraint forces are stored in Contact::lambda.
     //
-    virtual void solve(float h) = 0;
+    virtual void solve(float h, int substeps) = 0;
 
 protected:
 

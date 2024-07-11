@@ -97,7 +97,7 @@ SolverConjResidual::SolverConjResidual(RigidBodySystem* _rigidBodySystem) : Solv
 
 }
 
-void SolverConjResidual::solve(float h)
+void SolverConjResidual::solve(float h, int substeps)
 {
     const auto& bodies = m_rigidBodySystem->getBodies();
     const auto& joints = m_rigidBodySystem->getJoints();

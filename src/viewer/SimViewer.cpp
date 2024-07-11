@@ -71,6 +71,7 @@ namespace
 }
 
 SimViewer::SimViewer() :
+    m_adaptiveTimesteps(false),
     m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
     m_paused(true), m_stepOnce(false), m_enableCollisions(true), m_enableScreenshots(false)
 {
@@ -144,6 +145,7 @@ void SimViewer::drawGUI()
     }
 
     ImGui::PushItemWidth(100);
+    ImGui::Checkbox("Adaptive time steps", &m_adaptiveTimesteps);
     ImGui::SliderFloat("Time step", &m_dt, 0.0f, 0.1f, "%.3f");
     ImGui::SliderInt("Num. sub-steps", &m_subSteps, 1, 20, "%u");
     ImGui::SliderInt("Solver iters.", &(m_rigidBodySystem->solverIter), 1, 100, "%u");
@@ -193,7 +195,7 @@ void SimViewer::draw()
         const float dt = m_dt / (float)m_subSteps;
         for(int i = 0; i < m_subSteps; ++i)
         {
-            m_rigidBodySystem->step(dt);
+            m_rigidBodySystem->step(dt, m_subSteps);
         }
         auto stop = std::chrono::high_resolution_clock::now();
 
