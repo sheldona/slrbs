@@ -101,6 +101,32 @@ public:
         bodyBox->mesh->setSurfaceColor({ 0.2f, 0.2f, 0.2f })->setSmoothShade(false)->setTransparency(0.4f);
     }
 
+    // Stack of boxes
+    //
+    static void createBoxStack(RigidBodySystem& rigidBodySystem)
+    {
+        rigidBodySystem.clear();
+        polyscope::removeAllStructures();
+
+        std::cout << "Loading box stack scenario." << std::endl;
+
+        // Create a box that will act as the ground.
+        RigidBody* bodyBox = new RigidBody(1.0f, new Box(Eigen::Vector3f(10.0f, 0.4f, 10.0f)), "resources/box_bot.obj");
+        bodyBox->fixed = true;
+        bodyBox->mesh->setSurfaceColor({ 0.2f, 0.2f, 0.2f })->setSmoothShade(false)->setTransparency(0.4f);
+
+        rigidBodySystem.addBody(bodyBox);
+
+        for (int i = 0; i < 2; i++)
+        {
+            RigidBody* box = new RigidBody(1.0f, new Box(Eigen::Vector3f(1.0f, 1.0f, 1.0f)), "resources/box.obj");
+            box->x.y() = 1.0f + i;
+            box->mesh->setTransparency(0.8f);
+            rigidBodySystem.addBody(box);
+            box->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(1.0f);
+        }
+    }
+
     // Box hanging from a box
     //
     static void createSwingingBoxes(RigidBodySystem& rigidBodySystem)

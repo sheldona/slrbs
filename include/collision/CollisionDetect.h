@@ -50,6 +50,9 @@ private:
     // Cylinder-plane collision test
     void collisionDetectCylinderPlane(RigidBody* body0, RigidBody* body1);
 
+    // Box-box collision test
+    void collisionDetectBoxBox(RigidBody* body0, RigidBody* body1);
+
 private:
 
     RigidBodySystem* m_rigidBodySystem;                 // The rigid body system.

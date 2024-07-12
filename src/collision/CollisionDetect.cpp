@@ -71,6 +71,11 @@ void CollisionDetect::detectCollisions()
             {
                 collisionDetectCylinderPlane(body1, body0);
             }
+            else if (body1->geometry->getType() == kBox &&
+                body0->geometry->getType() == kBox)
+            {
+				collisionDetectBoxBox(body0, body1);
+            }
         }
     }
 }
@@ -272,4 +277,111 @@ void CollisionDetect::collisionDetectCylinderPlane(RigidBody* body0, RigidBody* 
         }
     }
     
+}
+
+void CollisionDetect::collisionDetectBoxBox(RigidBody* body0, RigidBody* body1)
+{
+    Box* box1 = dynamic_cast<Box*>(body0->geometry.get());
+    Box* box2 = dynamic_cast<Box*>(body1->geometry.get());
+
+    // Helper function to compute the vertices of a box
+    auto getVertices = [](const Box& box, Eigen::Vector3f& center, Eigen::Matrix3f& R) {
+        Eigen::Vector3f hs = box.dim * 0.5f;
+        
+        std::vector<Eigen::Vector3f> vertices(8);
+        vertices[0] = center + R * Eigen::Vector3f(hs.x(), hs.y(), hs.z());
+        vertices[1] = center + R * Eigen::Vector3f(-hs.x(), hs.y(), hs.z());
+        vertices[2] = center + R * Eigen::Vector3f(hs.x(), -hs.y(), hs.z());
+        vertices[3] = center + R * Eigen::Vector3f(hs.x(), hs.y(), -hs.z());
+        vertices[4] = center + R * Eigen::Vector3f(-hs.x(), -hs.y(), hs.z());
+        vertices[5] = center + R * Eigen::Vector3f(hs.x(), -hs.y(), -hs.z());
+        vertices[6] = center + R * Eigen::Vector3f(-hs.x(), hs.y(), -hs.z());
+        vertices[7] = center + R * Eigen::Vector3f(-hs.x(), -hs.y(), -hs.z());
+        return vertices;
+    };
+
+    std::vector<Eigen::Vector3f> axes;
+    axes.reserve(15);
+    Eigen::Matrix3f R1 = body0->q.toRotationMatrix();
+    Eigen::Matrix3f R2 = body1->q.toRotationMatrix();
+
+    // Add face normals of both boxes
+    axes.push_back(R1.col(0));
+    axes.push_back(R1.col(1));
+    axes.push_back(R1.col(2));
+    axes.push_back(R2.col(0));
+    axes.push_back(R2.col(1));
+    axes.push_back(R2.col(2));
+
+    // Add cross products of edge directions
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            axes.push_back(R1.col(i).cross(R2.col(j)));
+        }
+    }
+
+    // Check for separation on each axis
+    float minPenetrationDepth = std::numeric_limits<float>::max();
+    Eigen::Vector3f bestAxis;
+    bool collision = true;
+
+    for (const auto& axis : axes) {
+        Eigen::Vector3f axisNorm = axis.normalized();
+        if (axisNorm.squaredNorm() < 0.0001f)
+            continue;
+
+        // Project the vertices of both boxes onto the axis
+        auto project = [&axisNorm](const std::vector<Eigen::Vector3f>& vertices) {
+            float minProj = std::numeric_limits<float>::max();
+            float maxProj = -std::numeric_limits<float>::max();
+            for (const auto& vertex : vertices) {
+                float proj = vertex.dot(axisNorm);
+                if (proj < minProj) minProj = proj;
+                if (proj > maxProj) maxProj = proj;
+            }
+            return std::make_pair(minProj, maxProj);
+        };
+
+        auto vertices1 = getVertices(*box1, body0->x, R1);
+        auto vertices2 = getVertices(*box2, body1->x, R2);
+
+        auto [min1, max1] = project(vertices1);
+        auto [min2, max2] = project(vertices2);
+
+        if (max1 < min2 || max2 < min1) {
+            collision = false;
+            break;
+        }
+        else {
+            float overlap = std::min(max1, max2) - std::max(min1, min2);
+            if (overlap < minPenetrationDepth) {
+                minPenetrationDepth = overlap;
+                bestAxis = axisNorm;
+            }
+        }
+    }
+
+    if (!collision || bestAxis.squaredNorm() < 0.0001f) 
+        return;
+
+    // Compute contact points if collision is detected
+    Eigen::Vector3f contactNormal = bestAxis;
+    float penetrationDepth = minPenetrationDepth;
+
+    // Find the point of deepest penetration
+    for (const auto& vertex : getVertices(*box2, body1->x, R2)) {
+        double proj = vertex.dot(contactNormal);
+        if (proj <= penetrationDepth) {
+            Contact* cp = new Contact(body1, body0, vertex, contactNormal, -penetrationDepth);
+            m_contacts.push_back(cp);
+        }
+    }
+
+    for (const auto& vertex : getVertices(*box1, body0->x, R1)) {
+        double proj = vertex.dot(contactNormal);
+        if (proj <= penetrationDepth) {
+            Contact* cp = new Contact(body0, body1, vertex, -contactNormal, -penetrationDepth);
+            m_contacts.push_back(cp);
+        }
+    }
 }

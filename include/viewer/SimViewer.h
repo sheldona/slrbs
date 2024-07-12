@@ -30,6 +30,7 @@ public:
     void reset();
 
 private:
+    void createBoxStack();
     void createMarbleBox();
     void createSphereOnBox();
     void createSwingingBox();
