@@ -41,7 +41,7 @@ void RigidBodySystem::addJoint(Joint* _j)
     if (_j->body1) _j->body1->joints.push_back(_j);
 }
 
-void RigidBodySystem::step(float dt, int substeps)
+void RigidBodySystem::step(float dt)
 {
     // Initialize the system.
     // Apply gravitional forces and reset angular forces.
@@ -83,7 +83,7 @@ void RigidBodySystem::step(float dt, int substeps)
         b->tauc.setZero();
     }
 
-    calcConstraintForces(dt, substeps);
+    calcConstraintForces(dt);
 
     // Perform numerical integration to first update the velocities of each rigid body in @a m_bodies, 
     // followed by the positions and orientations.
@@ -166,12 +166,12 @@ std::vector<Joint*>& RigidBodySystem::getJoints()
     return m_joints;
 }
 
-void RigidBodySystem::calcConstraintForces(float dt, int substeps)
+void RigidBodySystem::calcConstraintForces(float dt)
 {
     // Solve for the constraint forces lambda
     //
     s_solvers[solverId]->setMaxIter(solverIter);
-    s_solvers[solverId]->solve(dt, substeps);
+    s_solvers[solverId]->solve(dt);
 
 
     for (const auto j : m_joints)

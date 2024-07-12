@@ -72,6 +72,7 @@ namespace
 
 SimViewer::SimViewer() :
     m_adaptiveTimesteps(false),
+    m_alpha(0.002f),
     m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
     m_paused(true), m_stepOnce(false), m_enableCollisions(true), m_enableScreenshots(false)
 {
@@ -146,6 +147,8 @@ void SimViewer::drawGUI()
 
     ImGui::PushItemWidth(100);
     ImGui::Checkbox("Adaptive time steps", &m_adaptiveTimesteps);
+    if (m_adaptiveTimesteps)
+        ImGui::SliderFloat("Alpha", &m_alpha, 0.0f, 1.0f);
     ImGui::SliderFloat("Time step", &m_dt, 0.0f, 0.1f, "%.3f");
     ImGui::SliderInt("Num. sub-steps", &m_subSteps, 1, 20, "%u");
     ImGui::SliderInt("Solver iters.", &(m_rigidBodySystem->solverIter), 1, 100, "%u");
@@ -195,8 +198,47 @@ void SimViewer::draw()
         const float dt = m_dt / (float)m_subSteps;
         for(int i = 0; i < m_subSteps; ++i)
         {
-            m_rigidBodySystem->step(dt, m_subSteps);
+            m_rigidBodySystem->step(dt);
         }
+
+        // Automatically choose next substeps based on geometric stiffness
+        if (m_adaptiveTimesteps)
+		{
+            for (auto b : m_rigidBodySystem->getBodies())
+                b->gsSum.setZero();
+
+            for (auto j : m_rigidBodySystem->getJoints())
+            {
+                j->computeGeometricStiffness();
+                j->body0->gsSum += j->G0;
+                j->body1->gsSum += j->G1;
+            }
+
+            float maxDt = FLT_MAX;
+            for (auto b : m_rigidBodySystem->getBodies())
+            {
+                if (b->fixed) continue;
+                
+                for (int c = 0; c < 3; c++)
+                {
+                    float m = b->mass;
+                    float k = b->gsSum.col(c).norm();
+                    if (k > 0)
+                        maxDt = std::min(sqrtf(4 * m_alpha * m / k), maxDt);
+                }
+
+                for (int c = 0; c < 3; c++)
+                {
+                    float m = b->I.col(c).norm();
+                    float k = b->gsSum.col(c + 3).norm();
+                    if (k > 0)
+                        maxDt = std::min(sqrtf(4 * m_alpha * m / k), maxDt);
+                }
+            }
+
+            m_subSteps = std::max(1, (int)ceil(m_dt / maxDt));
+		}
+
         auto stop = std::chrono::high_resolution_clock::now();
 
         updateRigidBodyMeshes(*m_rigidBodySystem);

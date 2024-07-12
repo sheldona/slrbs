@@ -25,6 +25,8 @@ public:
     JBlock J1;                  //< The Jacobian of body1
     JBlock J0Minv;
     JBlock J1Minv;
+    GBlock G0;
+    GBlock G1;
     Eigen::VectorXf phi;        //< Contraint error
     Eigen::VectorXf lambda;     //< Constraint impulse
     
@@ -34,6 +36,7 @@ public:
     virtual eConstraintType getType() const = 0;
 
     virtual void computeJacobian() = 0;
+    virtual void computeGeometricStiffness() {}
 
 protected:
 

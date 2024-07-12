@@ -9,6 +9,10 @@
 
 namespace
 {
+    static const float stabilization = 100.0f;
+    static const float alpha = stabilization * 2;
+    static const float beta = stabilization* stabilization * 2;
+
     static inline void multAndSub(const JBlock& G, const Eigen::Vector3f& x, const Eigen::Vector3f& y, const float& a, Eigen::VectorBlock<Eigen::VectorXf>& b)
     {
         b -= a * G.col(0) * x(0);
@@ -25,11 +29,10 @@ namespace
     static inline void buildRHS(const std::vector<Joint*>& joints, float h, Eigen::VectorXf& b)
     {
         const float hinv = 1.0f / h;
-        const float gamma = 0.3f;
 
         for (Joint* j : joints)
         {
-            b.segment(j->idx, j->dim) = -hinv * gamma * j->phi;
+            b.segment(j->idx, j->dim) = -hinv * j->phi * (h * beta / (h * beta + alpha));
 
             if (!j->body0->fixed)
             {
@@ -66,9 +69,9 @@ namespace
         }
     }
 
-    static inline void computeAx(const std::vector<Joint*>& joints, const Eigen::VectorXf& x, Eigen::VectorXf& Ax)
+    static inline void computeAx(float h, const std::vector<Joint*>& joints, const Eigen::VectorXf& x, Eigen::VectorXf& Ax)
     {
-        static const float eps = 1e-9f;
+        static const float eps = 1e-9f + 1.0f / (h * h * beta + alpha);
         Ax.setZero();
         for (Joint* j : joints)
         {
@@ -97,7 +100,7 @@ SolverConjResidual::SolverConjResidual(RigidBodySystem* _rigidBodySystem) : Solv
 
 }
 
-void SolverConjResidual::solve(float h, int substeps)
+void SolverConjResidual::solve(float h)
 {
     const auto& bodies = m_rigidBodySystem->getBodies();
     const auto& joints = m_rigidBodySystem->getJoints();
@@ -119,12 +122,12 @@ void SolverConjResidual::solve(float h, int substeps)
     buildRHS(joints, h, b);
 
     // Compute initial Ax and residual
-    computeAx(joints, x, Ax);
+    computeAx(h, joints, x, Ax);
     r = b - Ax;
     p = r;
 
-    computeAx(joints, p, Ap);
-    computeAx(joints, r, Ar);
+    computeAx(h, joints, p, Ap);
+    computeAx(h, joints, r, Ar);
 
     float rAr = (r.dot(Ar));
     float pATAp = Ap.dot(Ap);
@@ -137,7 +140,7 @@ void SolverConjResidual::solve(float h, int substeps)
        
         x += alpha * p;
         r -= alpha * Ap;
-        computeAx(joints, r, Ar);
+        computeAx(h, joints, r, Ar);
         const float rAr_next = r.dot(Ar);
 
         const float beta = rAr_next / rAr;

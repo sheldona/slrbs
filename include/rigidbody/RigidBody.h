@@ -54,5 +54,5 @@ public:
 
     polyscope::SurfaceMesh* mesh;       // Used for rendering
 
-
+    GBlock gsSum;                       // Sum of geometric stiffness blocks for this body
 };

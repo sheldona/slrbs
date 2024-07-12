@@ -45,6 +45,7 @@ private:
 
     // Simulation parameters
     bool m_adaptiveTimesteps;
+    float m_alpha;
     float m_dt;                         // Time step parameter.
     int m_subSteps;
     bool m_paused;                      // Pause the simulation.

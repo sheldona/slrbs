@@ -12,6 +12,6 @@ public:
 
     // Implement CR method that solves for the constraint impulses in @a m_rigidBodySystem.
     // 
-    virtual void solve(float h, int substeps) override;
+    virtual void solve(float h) override;
 
 };

@@ -60,5 +60,8 @@ void Hinge::computeJacobian()
     J0Minv.block(0, 3, 5, 3) = J0.block(0, 3, 5, 3) * body0->Iinv;
     J1Minv.block(0, 0, 5, 3) = (1.0f / body1->mass) * J1.block(0, 0, 5, 3);
     J1Minv.block(0, 3, 5, 3) = J1.block(0, 3, 5, 3) * body1->Iinv;
+
+    G0.setZero();
+    G1.setZero();
 }
 

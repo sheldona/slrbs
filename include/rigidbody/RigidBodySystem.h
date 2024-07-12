@@ -23,7 +23,7 @@ public:
     virtual ~RigidBodySystem();
 
     // Advance the simulation.
-    void step(float _dt, int substeps);
+    void step(float _dt);
 
     // Remove all rigid bodies and cleanup the memory.
     void clear();
@@ -68,7 +68,7 @@ private:
     void computeInertias();
 
     // Compute the constraint forces.
-    void calcConstraintForces(float dt, int substeps);
+    void calcConstraintForces(float dt);
 
     PreStepFunc m_preStepFunc;
     ResetFunc m_resetFunc;

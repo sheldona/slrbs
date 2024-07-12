@@ -128,7 +128,8 @@ public:
             nextBox->x = parent->x - Eigen::Vector3f(0.0f, 1.5f, 0.0f);
 
             // Add a hinge between parent->nextBox
-            Joint* j = new Hinge(parent, nextBox, { 0.0f, 0.0f, 0.0f }, Eigen::Quaternionf::Identity(), { 0.0f, 1.5f, 0.0f }, Eigen::Quaternionf::Identity());
+            //Joint* j = new Hinge(parent, nextBox, { 0.0f, 0.0f, 0.0f }, Eigen::Quaternionf::Identity(), { 0.0f, 1.5f, 0.0f }, Eigen::Quaternionf::Identity());
+            Joint* j = new Spherical(parent, nextBox, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.5f, 0.0f });
 
             // Add new box and hinge to the rigid body system.
             rigidBodySystem.addBody(nextBox);
