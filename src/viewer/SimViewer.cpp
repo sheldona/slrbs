@@ -1,9 +1,10 @@
 #include "viewer/SimViewer.h"
 
 #include "polyscope/polyscope.h"
-#include "polyscope/surface_mesh.h"
+#include "polyscope/curve_network.h"
 #include "polyscope/point_cloud.h"
 #include "polyscope/pick.h"
+#include "polyscope/surface_mesh.h"
 #include "polyscope/view.h"
 #include "imgui.h"
 
@@ -13,6 +14,7 @@
 
 #include "contact/Contact.h"
 #include "rigidbody/RigidBodySystem.h"
+#include "rigidbody/RigidBodyState.h"
 #include "rigidbody/Scenarios.h"
 
 using namespace std;
@@ -20,6 +22,10 @@ using namespace std;
 namespace
 {
     static RigidBodySystem* m_rigidBodySystem = new RigidBodySystem;
+    
+    static const char* strContacts = "contacts";
+    static const char* strJointPoints = "jointsPoint";
+    static const char* strJointCurve = "jointsCurve";
 
     static void updateRigidBodyMeshes(RigidBodySystem& _rigidBodySystem)
     {
@@ -68,17 +74,52 @@ namespace
         }
     }
 
+    static void updateJointViz(RigidBodySystem& _rigidBodySystem)
+    {
+        const auto& joints = _rigidBodySystem.getJoints();
+        const unsigned int numJoints = joints.size();
+
+        if (numJoints == 0)
+        {
+            polyscope::removePointCloud("jointsPoint");
+            polyscope::removeCurveNetwork("jointsCurve");
+        }
+        else
+        {
+            Eigen::MatrixXf jointP(2 * numJoints, 3);
+            Eigen::MatrixXi jointE(numJoints, 2);
+            for (unsigned int i = 0; i < numJoints; ++i)
+            {
+                const Eigen::Vector3f p0 = joints[i]->body0->q * joints[i]->r0 + joints[i]->body0->x;
+                const Eigen::Vector3f p1 = joints[i]->body1->q * joints[i]->r1 + joints[i]->body1->x;
+
+                jointP.row(2 * i) = p0;
+                jointP.row(2 * i + 1) = p1;
+                jointE.row(i) = Eigen::Vector2i(2 * i, 2 * i + 1);
+            }
+
+            auto pointCloud = polyscope::registerPointCloud("jointsPoint", jointP);
+            pointCloud->setPointColor({ 0.0f, 0.0f, 1.0f });
+            pointCloud->setPointRadius(0.005);
+            auto curves = polyscope::registerCurveNetwork("jointsCurve", jointP, jointE);
+            curves->setRadius(0.002f);
+        }
+    }
+
+
 }
 
 SimViewer::SimViewer() :
     m_adaptiveTimesteps(false),
     m_alpha(0.002f),
     m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
-    m_paused(true), m_stepOnce(false), m_enableCollisions(true), m_enableScreenshots(false)
+    m_paused(true), m_stepOnce(false),
+    m_enableCollisions(true), m_enableScreenshots(false),
+    m_drawContacts(true), m_drawConstraints(true),
+    m_resetState()
 {
-
+    m_resetState = std::make_unique<RigidBodySystemState>(*m_rigidBodySystem);
     reset();
-
 }
 
 SimViewer::~SimViewer()
@@ -88,14 +129,18 @@ SimViewer::~SimViewer()
 void SimViewer::reset()
 {
     std::cout << " ---- Reset ----- " << std::endl;
-
-    m_rigidBodySystem->clear();
-    polyscope::removeAllStructures();
-    polyscope::resetScreenshotIndex();
-
+    m_resetState->restore(*m_rigidBodySystem);
     m_dynamicsTime = 0.0f;
+
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
 }
 
+void SimViewer::save()
+{
+    std::cout << " ---- Saving current state ----- " << std::endl;
+    m_resetState->save(*m_rigidBodySystem);
+}
 
 void SimViewer::start()
 {
@@ -142,7 +187,9 @@ void SimViewer::drawGUI()
     }
     if (ImGui::Button("Reset")) {
         reset();
-
+    }
+    if (ImGui::Button("Save")) {
+        save();
     }
 
     ImGui::PushItemWidth(100);
@@ -154,14 +201,16 @@ void SimViewer::drawGUI()
     ImGui::SliderInt("Solver iters.", &(m_rigidBodySystem->solverIter), 1, 100, "%u");
     ImGui::SliderFloat("Friction coeff.", &(Contact::mu), 0.0f, 2.0f, "%.2f");
     ImGui::RadioButton("PGS", &(m_rigidBodySystem->solverId), 0);  ImGui::SameLine();
-    ImGui::RadioButton("Conj. Gradient", &(m_rigidBodySystem->solverId), 1);
-    ImGui::RadioButton("Conj. Residual", &(m_rigidBodySystem->solverId), 2);
+    ImGui::RadioButton("Conj. Gradient (NO CONTACT)", &(m_rigidBodySystem->solverId), 1);
+    ImGui::RadioButton("Conj. Residual (NO CONTACT)", &(m_rigidBodySystem->solverId), 2);
     ImGui::PopItemWidth();
 
     if (ImGui::Checkbox("Enable collision detecton", &m_enableCollisions)) {
         m_rigidBodySystem->setEnableCollisionDetection(m_enableCollisions);
     }
 
+    ImGui::Checkbox("Draw contacts", &m_drawContacts);
+    ImGui::Checkbox("Draw constraints", &m_drawConstraints);
     ImGui::Checkbox("Enable screenshots", &m_enableScreenshots);
 
     if (ImGui::Button("Sphere on box")) {
@@ -245,7 +294,20 @@ void SimViewer::draw()
         auto stop = std::chrono::high_resolution_clock::now();
 
         updateRigidBodyMeshes(*m_rigidBodySystem);
-        updateContactPoints(*m_rigidBodySystem);
+
+        if (m_drawContacts)
+            updateContactPoints(*m_rigidBodySystem);
+        else
+            polyscope::removePointCloud(strContacts);
+
+        if (m_drawConstraints)
+            updateJointViz(*m_rigidBodySystem);
+        else
+        {
+            polyscope::removePointCloud(strJointPoints);
+            polyscope::removeCurveNetwork(strJointCurve);
+        }
+
 
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
         m_dynamicsTime = (float)duration.count() / 1000.0f;
@@ -263,14 +325,15 @@ void SimViewer::draw()
 void SimViewer::createMarbleBox()
 {
     Scenarios::createMarbleBox(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
-
 }
 
 void SimViewer::createSphereOnBox()
 {
     Scenarios::createSphereOnBox(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }
@@ -278,6 +341,7 @@ void SimViewer::createSphereOnBox()
 void SimViewer::createSwingingBox()
 {
     Scenarios::createSwingingBoxes(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }
@@ -292,6 +356,7 @@ void SimViewer::createBoxStack()
 void SimViewer::createCylinderOnPlane()
 {
     Scenarios::createCylinderOnPlane(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }
@@ -299,6 +364,7 @@ void SimViewer::createCylinderOnPlane()
 void SimViewer::createCarScene()
 {
     Scenarios::createCarScene(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }

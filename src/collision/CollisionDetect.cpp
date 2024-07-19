@@ -29,33 +29,33 @@ void CollisionDetect::detectCollisions()
     // Next, loop over all pairs of bodies and test for contacts.
     //
     auto bodies = m_rigidBodySystem->getBodies();
-    for(unsigned int i = 0; i < bodies.size(); ++i)
+    for (unsigned int i = 0; i < bodies.size(); ++i)
     {
-        for(unsigned int j = i+1; j < bodies.size(); ++j)
+        for (unsigned int j = i + 1; j < bodies.size(); ++j)
         {
             RigidBody* body0 = bodies[i];
             RigidBody* body1 = bodies[j];
 
             // Special case: skip tests for pairs of static bodies.
             //
-            if (body0->fixed && body1->fixed) 
+            if (body0->fixed && body1->fixed)
                 continue;
 
             // Test for sphere-sphere collision.
-            if( body0->geometry->getType() == kSphere &&
-                body1->geometry->getType() == kSphere )
+            if (body0->geometry->getType() == kSphere &&
+                body1->geometry->getType() == kSphere)
             {
                 collisionDetectSphereSphere(body0, body1);
             }
             // Test for sphere-box collision
-            else if( body0->geometry->getType() == kSphere &&
-                     body1->geometry->getType() == kBox )
+            else if (body0->geometry->getType() == kSphere &&
+                body1->geometry->getType() == kBox)
             {
                 collisionDetectSphereBox(body0, body1);
             }
             // Test for box-sphere collision (order swap)
-            else if( body1->geometry->getType() == kSphere &&
-                     body0->geometry->getType() == kBox )
+            else if (body1->geometry->getType() == kSphere &&
+                body0->geometry->getType() == kBox)
             {
                 collisionDetectSphereBox(body1, body0);
             }
@@ -82,7 +82,7 @@ void CollisionDetect::detectCollisions()
 
 void CollisionDetect::computeContactJacobians()
 {
-    for(auto c : m_contacts)
+    for (auto c : m_contacts)
     {
         c->computeContactFrame();
         c->computeJacobian();
@@ -91,14 +91,14 @@ void CollisionDetect::computeContactJacobians()
 
 void CollisionDetect::clear()
 {
-    for(auto c : m_contacts)
+    for (auto c : m_contacts)
     {
         delete c;
     }
     m_contacts.clear();
 
     auto bodies = m_rigidBodySystem->getBodies();
-    for(auto b : bodies)
+    for (auto b : bodies)
     {
         b->contacts.clear();
     }
@@ -117,13 +117,13 @@ void CollisionDetect::collisionDetectSphereSphere(RigidBody* body0, RigidBody* b
 
     const float rsum = (sphere0->radius + sphere1->radius);
     const float dist = vec.norm();
-    if( dist < rsum )
+    if (dist < (rsum + 1e-3f))
     {
         const Eigen::Vector3f n = vec / dist;
-        const Eigen::Vector3f p = 0.5f * ((body0->x - sphere0->radius*n) + (body1->x + sphere1->radius*n));
-        const float phi = dist-rsum;
+        const Eigen::Vector3f p = 0.5f * ((body0->x - sphere0->radius * n) + (body1->x + sphere1->radius * n));
+        const float phi = std::min(0.0f, dist - rsum);
 
-        m_contacts.push_back( new Contact(body0, body1, p, n, phi) );
+        m_contacts.push_back(new Contact(body0, body1, p, n, phi));
     }
 }
 
@@ -134,10 +134,9 @@ void CollisionDetect::collisionDetectSphereBox(RigidBody* body0, RigidBody* body
 
     const Eigen::Vector3f clocal = body1->q.inverse() * (body0->x - body1->x);
 
-    Eigen::Vector3f q(0,0,0);
-    for(unsigned int i = 0; i < 3; ++i)
+    Eigen::Vector3f q(0, 0, 0);
+    for (unsigned int i = 0; i < 3; ++i)
     {
-        //q[i] = std::max(-box->dim[i]/2.0f, std::min(box->dim[i]/2.0f, clocal[i]));
         q[i] = clocal[i];
         if (q[i] < (-box->dim[i] / 2.0f)) q[i] = -box->dim[i] / 2.0f;
         else if (q[i] > (box->dim[i] / 2.0f)) q[i] = (box->dim[i] / 2.0f);
@@ -145,13 +144,13 @@ void CollisionDetect::collisionDetectSphereBox(RigidBody* body0, RigidBody* body
 
     const Eigen::Vector3f dx = clocal - q;
     const float dist = dx.norm();
-    if( dist < sphere->radius )
+    if (dist < (sphere->radius + 1e-3f))
     {
-        const Eigen::Vector3f n = body1->q * (dx/dist);
+        const Eigen::Vector3f n = body1->q * (dx / dist);
         const Eigen::Vector3f p = body1->q * q + body1->x;
-        const float phi = dist - sphere->radius;
+        const float phi = std::min(0.0f, dist - sphere->radius);
 
-        m_contacts.push_back( new Contact(body0, body1, p, n, phi) );
+        m_contacts.push_back(new Contact(body0, body1, p, n, phi));
     }
 }
 
@@ -167,7 +166,7 @@ void CollisionDetect::collisionDetectCylinderPlane(RigidBody* body0, RigidBody* 
 
     const float dp = cyldir.dot(planen);
 
-    if ( std::fabs(dp) > 0.995f) // aligned with plane normal
+    if (std::fabs(dp) > 0.995f) // aligned with plane normal
     {
         Eigen::Vector3f w;
         if (dp < 0.0f)
@@ -180,7 +179,7 @@ void CollisionDetect::collisionDetectCylinderPlane(RigidBody* body0, RigidBody* 
         }
 
         Eigen::Vector3f u, v;
-        if ( std::fabs(w.dot(Eigen::Vector3f(1,0,0))) > 0.01f)
+        if (std::fabs(w.dot(Eigen::Vector3f(1, 0, 0))) > 0.01f)
         {
             u = w.cross(Eigen::Vector3f(1, 0, 0));
         }
@@ -192,9 +191,9 @@ void CollisionDetect::collisionDetectCylinderPlane(RigidBody* body0, RigidBody* 
         v = w.cross(u);
         v.normalize();
 
-        const Eigen::Vector3f a = body0->x + float(0.5f) * cyl->height * w;
+        const Eigen::Vector3f a = body0->x + 0.5f * cyl->height * w;
         const float dist = distancePointPlane(a, planep, planen);
-        if (dist < 0.01f)
+        if (dist < 1e-3f)
         {
             const Eigen::Vector3f n = planen;
 
@@ -203,22 +202,22 @@ void CollisionDetect::collisionDetectCylinderPlane(RigidBody* body0, RigidBody* 
             float phiC = distancePointPlane(a + cyl->radius * v, planep, planen);
             float phiD = distancePointPlane(a - cyl->radius * v, planep, planen);
 
-            if (phiA < 0.0f) {
-                m_contacts.push_back(new Contact(body0, body1, a + cyl->radius * u, n, phiA));
+            if (phiA < 1e-3f) {
+                m_contacts.push_back(new Contact(body0, body1, a + cyl->radius * u, n, std::min(0.0f, phiA)));
             }
-            if (phiB < 0.0f) {
-                m_contacts.push_back(new Contact(body0, body1, a - cyl->radius * u, n, phiB));
+            if (phiB < 1e-3f) {
+                m_contacts.push_back(new Contact(body0, body1, a - cyl->radius * u, n, std::min(0.0f, phiB)));
             }
-            if (phiC < 0.0f) {
-                m_contacts.push_back(new Contact(body0, body1, a + cyl->radius * v, n, phiC));
+            if (phiC < 1e-3f) {
+                m_contacts.push_back(new Contact(body0, body1, a + cyl->radius * v, n, std::min(0.0f, phiC)));
             }
-            if (phiD < 0.0f) {
-                m_contacts.push_back(new Contact(body0, body1, a - cyl->radius * v, n, phiD));
+            if (phiD < 1e-3f) {
+                m_contacts.push_back(new Contact(body0, body1, a - cyl->radius * v, n, std::min(0.0f, phiD)));
             }
         }
 
     }
-    else if ( std::fabs(dp) < 0.005f)  // penpendicular to plane
+    else if (std::fabs(dp) < 1e-2f)  // perpendicular to plane
     {
         const Eigen::Vector3f w = cyldir;
         Eigen::Vector3f u = (planen.cross(w)).cross(w);
@@ -230,17 +229,17 @@ void CollisionDetect::collisionDetectCylinderPlane(RigidBody* body0, RigidBody* 
 
         const Eigen::Vector3f cylpos = body0->x;
         const float dist = distancePointPlane(cylpos, planep, planen) - cyl->radius;
-        if (dist < 0.01f )
+        if (dist < 0.01f)
         {
             const Eigen::Vector3f n = planen;
 
             float phiA = distancePointPlane(cylpos + float(0.5f) * cyl->height * cyldir + cyl->radius * u, planep, planen);
             float phiB = distancePointPlane(cylpos - float(0.5f) * cyl->height * cyldir + cyl->radius * u, planep, planen);
-            if (phiA < 0.0f) {
-                m_contacts.push_back(new Contact(body0, body1, cylpos + float(0.5f) * cyl->height * cyldir + cyl->radius * u, n, phiA));
+            if (phiA < 1e-3f) {
+                m_contacts.push_back(new Contact(body0, body1, cylpos + float(0.5f) * cyl->height * cyldir + cyl->radius * u, n, std::min(0.0f, phiA)));
             }
-            if (phiB < 0.0f) {
-                m_contacts.push_back(new Contact(body0, body1, cylpos - float(0.5f) * cyl->height * cyldir + cyl->radius * u, n, phiB));
+            if (phiB < 1e-3f) {
+                m_contacts.push_back(new Contact(body0, body1, cylpos - float(0.5f) * cyl->height * cyldir + cyl->radius * u, n, std::min(0.0f, phiB)));
             }
         }
     }
@@ -268,11 +267,11 @@ void CollisionDetect::collisionDetectCylinderPlane(RigidBody* body0, RigidBody* 
 
         const Eigen::Vector3f a = body0->x + float(0.5f) * cyl->height * w + cyl->radius * u;
         const float dist = distancePointPlane(a, planep, planen);
-        if (dist < 0.0f)
+        if (dist < 1e-3f)
         {
             const Eigen::Vector3f n = planen;
             const Eigen::Vector3f p = a;
-            float phi = dist;
+            const float phi = std::min(0.0f, dist);
             m_contacts.push_back(new Contact(body0, body1, p, n, phi));
         }
     }

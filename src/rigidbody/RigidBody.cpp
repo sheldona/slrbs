@@ -44,6 +44,36 @@ RigidBody::RigidBody(float _mass, Geometry* _geometry, const std::string& _filen
     RigidBody::counter++;
 }
 
+RigidBody::RigidBody(float _mass, Geometry* _geometry, const Mesh& _mesh) :
+    fixed(false),
+    mass(_mass),
+    x(0, 0, 0),
+    xdot(0, 0, 0),
+    omega(0, 0, 0),
+    q(1, 0, 0, 0),
+    Ibody(Eigen::Matrix3f::Identity()),
+    IbodyInv(Eigen::Matrix3f::Identity()),
+    Iinv(Eigen::Matrix3f::Zero()),
+    f(0, 0, 0),
+    tau(0, 0, 0),
+    fc(0, 0, 0),
+    tauc(0, 0, 0),
+    geometry(_geometry),
+    contacts(), joints(),
+    mesh(nullptr)
+{
+    Ibody = geometry->computeInertia(mass);
+    IbodyInv = Ibody.inverse();
+
+    // Register the mesh with Polyscope
+    mesh = polyscope::registerSurfaceMesh(std::to_string(RigidBody::counter), _mesh.meshV, _mesh.meshF);
+    mesh->setSmoothShade(false);
+    mesh->setEdgeWidth(1.0f);
+
+    contacts.clear();
+    RigidBody::counter++;
+}
+
 
 void RigidBody::updateInertiaMatrix()
 {

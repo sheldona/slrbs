@@ -40,3 +40,8 @@ private:
     // The one and only instance of the mesh cache.
     static MeshCache m_meshCache;
 };
+
+Mesh createCylinder(size_t N, float radius, float height);
+Mesh createPlane(const Eigen::Vector3f& p, const Eigen::Vector3f& n);
+Mesh createBox(const Eigen::Vector3f& dim);
+Mesh createSphere(float radius);

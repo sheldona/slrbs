@@ -3,6 +3,8 @@
 #include "solvers/Solver.h"
 
 // Conjugate residual solver
+// 
+// WARNING: contact handling not supported
 //
 class SolverConjGradient : public Solver
 {

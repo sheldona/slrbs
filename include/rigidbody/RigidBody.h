@@ -23,6 +23,8 @@ class RigidBody
 public:
     RigidBody(float _mass, Geometry* _geometry, const std::string& meshFilename = "");
 
+    RigidBody(float _mass, Geometry* _geometry, const Mesh& _mesh);
+
     static int counter;
 
     void updateInertiaMatrix();

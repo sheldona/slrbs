@@ -13,13 +13,13 @@ namespace
     }
 }
 
-Hinge::Hinge() : Joint(), r0(), r1()
+Hinge::Hinge() : Joint()
 {
 
 }
 
-Hinge::Hinge(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _r0, const Eigen::Quaternionf& _q0, const Eigen::Vector3f& _r1, const Eigen::Quaternionf& _q1) : Joint(_body0, _body1),
-    r0(_r0), q0(_q0), r1(_r1), q1(_q1)
+Hinge::Hinge(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _r0, const Eigen::Quaternionf& _q0, const Eigen::Vector3f& _r1, const Eigen::Quaternionf& _q1) : 
+    Joint(_body0, _body1, _r0, _q0, _r1, _q1)
 {
     dim = 5;
     J0.setZero(5, 6);
