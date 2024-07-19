@@ -14,13 +14,13 @@ namespace
 }
 
 
-Spherical::Spherical() : Joint(), r0(), r1()
+Spherical::Spherical() : Joint()
 {
 
 }
 
-Spherical::Spherical(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _r0, const Eigen::Vector3f& _r1) : Joint(_body0, _body1),
-    r0(_r0), r1(_r1)
+Spherical::Spherical(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _r0, const Eigen::Vector3f& _r1) :
+    Joint(_body0, _body1, _r0, Eigen::Quaternionf::Identity(), _r1, Eigen::Quaternionf::Identity())
 {
     dim = 3;
     J0.setZero(3, 6);
