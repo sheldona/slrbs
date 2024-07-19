@@ -7,6 +7,32 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 find_package(OpenGL REQUIRED)
 
+if (APPLE)
+  add_definitions( -DGL_SILENCE_DEPRECATION )
+endif()
+
+include(FetchContent)
+FetchContent_Declare(
+  polyscope
+  GIT_REPOSITORY https://github.com/nmwsharp/polyscope.git
+  GIT_TAG v2.2.1
+  GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(polyscope)
+FetchContent_GetProperties(polyscope SOURCE_DIR polyscope_SRC_DIR BINARY_DIR polyscope_BIN_DIR)
+
+FetchContent_Declare(
+  Eigen
+  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+  GIT_TAG 3.4
+  GIT_SHALLOW TRUE
+  GIT_PROGRESS TRUE
+  SOURCE_SUBDIR cmake
+)
+FetchContent_MakeAvailable(Eigen)
+FetchContent_GetProperties(Eigen SOURCE_DIR Eigen_SRC_DIR BINARY_DIR Eigen_BIN_DIR)
+
+
 set(collision_HEADERS include/collision/CollisionDetect.h 
                       include/collision/Geometry.h )
 set(collision_SOURCE src/collision/CollisionDetect.cpp ) 
@@ -55,8 +81,7 @@ add_executable (slrbs main.cpp
 		  ${util_HEADERS} ${util_SOURCE}
           ${viewer_HEADERS} ${viewer_SOURCE} )
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/polyscope)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include 3rdParty/Eigen3/include/eigen3 ${COMMON_INCLUDES})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include ${Eigen_SRC_DIR} ${COMMON_INCLUDES})
 target_link_libraries(slrbs OpenGL::GL polyscope)
 
 # Setup source code groups
