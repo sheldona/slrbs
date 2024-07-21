@@ -318,7 +318,7 @@ public:
 
         // Create a sphere.
         const float radius = 0.5f;
-        RigidBody* bodySphere = new RigidBody(100.0f, new Sphere(radius), createSphere(radius));
+        RigidBody* bodySphere = new RigidBody(1000.0f, new Sphere(radius), createSphere(radius));
         bodySphere->x = { x0, y + 1.0f, 0.0f };
         bodySphere->omega = { 0.0f, 0.0f, -5.0f };
         bodySphere->xdot = { 1.0f, 0.0f, 0.0f };

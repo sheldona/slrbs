@@ -247,18 +247,9 @@ void SimViewer::draw()
     {
         auto start = std::chrono::high_resolution_clock::now();
 
-        // Step the simulation.
-        // The time step dt is divided by the number of sub-steps.
-        //
-        const float dt = m_dt / (float)m_subSteps;
-        for(int i = 0; i < m_subSteps; ++i)
-        {
-            m_rigidBodySystem->step(dt);
-        }
-
         // Automatically choose next substeps based on geometric stiffness
         if (m_adaptiveTimesteps)
-		{
+        {
             for (auto b : m_rigidBodySystem->getBodies())
                 b->gsSum.setZero();
 
@@ -277,7 +268,7 @@ void SimViewer::draw()
             for (auto b : m_rigidBodySystem->getBodies())
             {
                 if (b->fixed) continue;
-                
+
                 for (int c = 0; c < 3; c++)
                 {
                     const float m = b->mass;
@@ -295,7 +286,16 @@ void SimViewer::draw()
 
             const float dt = 2.0f * m_alpha * std::sqrt(1.0f / maxK_M);
             m_subSteps = std::max(1, (int)ceil(m_dt / dt));
-		}
+        }
+
+        // Step the simulation.
+        // The time step dt is divided by the number of sub-steps.
+        //
+        const float dt = m_dt / (float)m_subSteps;
+        for(int i = 0; i < m_subSteps; ++i)
+        {
+            m_rigidBodySystem->step(dt);
+        }
 
         auto stop = std::chrono::high_resolution_clock::now();
 
