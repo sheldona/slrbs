@@ -11,6 +11,18 @@ namespace
             -v(1), v(0), 0;
         return vhat;
     }
+
+    static inline Eigen::Matrix3f prodOfCrossProd(const Eigen::Vector3f& a, const Eigen::Vector3f& b)
+    {
+        float a0b0 = a(0) * b(0);
+        float a1b1 = a(1) * b(1);
+        float a2b2 = a(2) * b(2);
+        Eigen::Matrix3f m;
+        m << -a1b1 - a2b2, a(1)* b(0), a(2)* b(0),
+            a(0)* b(1), -a0b0 - a2b2, a(2)* b(1),
+            a(0)* b(2), a(1)* b(2), -a0b0 - a1b1;
+        return m;
+    }
 }
 
 Hinge::Hinge() : Joint()
@@ -61,7 +73,34 @@ void Hinge::computeJacobian()
     J1Minv.block(0, 0, 5, 3) = (1.0f / body1->mass) * J1.block(0, 0, 5, 3);
     J1Minv.block(0, 3, 5, 3) = J1.block(0, 3, 5, 3) * body1->Iinv;
 
-    G0.setZero();
-    G1.setZero();
 }
 
+void Hinge::computeGeometricStiffness()
+{
+    const Eigen::Vector3f rr0 = body0->q * r0;
+    const Eigen::Vector3f rr1 = body1->q * r1;
+
+    const Eigen::Vector3f p0 = rr0 - body0->x;
+    const Eigen::Vector3f p1 = rr1 - body1->x;
+    const Eigen::Vector3f nn = body0->q * (q0 * Eigen::Vector3f(1, 0, 0));
+    const Eigen::Vector3f uu = body1->q * (q1 * Eigen::Vector3f(0, 1, 0));
+    const Eigen::Vector3f vv = body1->q * (q1 * Eigen::Vector3f(0, 0, 1));
+
+    const Eigen::Matrix3f unT = uu * nn.transpose();
+    const Eigen::Matrix3f vnT = vv * nn.transpose();
+
+    G0.setZero();
+    G0.block<3, 3>(3, 3) += prodOfCrossProd(lambda.segment<3>(0), p0);
+    G0.block<3, 3>(3, 3) += -unT.transpose();
+    G0.block<3, 3>(3, 3) += -vnT.transpose();
+    // TODO: missing additional off-diagonal blocks here. 
+    //  Need to modify G block matrix to account for 12x12 version of geom stiffness matrix
+
+
+
+    G1.setZero();
+    G1.block<3, 3>(3, 3) += -prodOfCrossProd(lambda.segment<3>(0), p1);
+    G1.block<3, 3>(3, 3) += unT.transpose();
+    G1.block<3, 3>(3, 3) += vnT.transpose();
+
+}

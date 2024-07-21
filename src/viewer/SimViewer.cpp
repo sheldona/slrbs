@@ -111,7 +111,7 @@ namespace
 
 SimViewer::SimViewer() :
     m_adaptiveTimesteps(false),
-    m_alpha(0.002f),
+    m_alpha(0.01f),
     m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
     m_paused(true), m_stepOnce(false),
     m_enableCollisions(true), m_enableScreenshots(false),
@@ -231,6 +231,9 @@ void SimViewer::drawGUI()
     if (ImGui::Button("Create car scene")) {
         createCarScene();
     }
+    if (ImGui::Button("Create bridge scene")) {
+        createBridgeScene();
+    }
 
     ImGui::Text("Step time: %3.3f ms", m_dynamicsTime);
 
@@ -259,6 +262,10 @@ void SimViewer::draw()
             for (auto b : m_rigidBodySystem->getBodies())
                 b->gsSum.setZero();
 
+            // TODO: need to use 12x12 blocks for g.s. matrix, otherwise off-diagonal terms
+            // are overlooked when computing the col norm.
+            //
+
             for (auto j : m_rigidBodySystem->getJoints())
             {
                 j->computeGeometricStiffness();
@@ -266,29 +273,28 @@ void SimViewer::draw()
                 j->body1->gsSum += j->G1;
             }
 
-            float maxDt = FLT_MAX;
+            float maxK_M = 0.0f;
             for (auto b : m_rigidBodySystem->getBodies())
             {
                 if (b->fixed) continue;
                 
                 for (int c = 0; c < 3; c++)
                 {
-                    float m = b->mass;
-                    float k = b->gsSum.col(c).norm();
-                    if (k > 0)
-                        maxDt = std::min(sqrtf(4 * m_alpha * m / k), maxDt);
+                    const float m = b->mass;
+                    const float k = b->gsSum.col(c).norm();
+                    maxK_M = std::max(k / m, maxK_M);
                 }
 
                 for (int c = 0; c < 3; c++)
                 {
-                    float m = b->I.col(c).norm();
-                    float k = b->gsSum.col(c + 3).norm();
-                    if (k > 0)
-                        maxDt = std::min(sqrtf(4 * m_alpha * m / k), maxDt);
+                    const float m = b->I.col(c).norm();
+                    const float k = b->gsSum.col(c + 3).norm();
+                    maxK_M = std::max(k / m, maxK_M);
                 }
             }
 
-            m_subSteps = std::max(1, (int)ceil(m_dt / maxDt));
+            const float dt = 2.0f * m_alpha * std::sqrt(1.0f / maxK_M);
+            m_subSteps = std::max(1, (int)ceil(m_dt / dt));
 		}
 
         auto stop = std::chrono::high_resolution_clock::now();
@@ -364,6 +370,14 @@ void SimViewer::createCylinderOnPlane()
 void SimViewer::createCarScene()
 {
     Scenarios::createCarScene(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createBridgeScene()
+{
+    Scenarios::createRopeBridgeScene(*m_rigidBodySystem);
     m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();

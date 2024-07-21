@@ -72,7 +72,7 @@ void Spherical::computeGeometricStiffness()
     const Eigen::Vector3f p1 = rr1 - body1->x;
 
     G0.setZero();
-    G0.block<3, 3>(3, 3) = -prodOfCrossProd(lambda.segment<3>(0), p0);
+    G0.block<3, 3>(3, 3) = prodOfCrossProd(lambda.segment<3>(0), p0);
     G1.setZero();
-    G1.block<3, 3>(3, 3) = prodOfCrossProd(lambda.segment<3>(0), p1);
+    G1.block<3, 3>(3, 3) = -prodOfCrossProd(lambda.segment<3>(0), p1);
 }

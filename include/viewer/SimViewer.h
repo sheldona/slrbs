@@ -41,6 +41,7 @@ private:
     void createSwingingBox();
     void createCylinderOnPlane();
     void createCarScene();
+    void createBridgeScene();
 
     void draw();
     void drawGUI();

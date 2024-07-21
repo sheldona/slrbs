@@ -15,6 +15,8 @@ public:
 
     virtual void computeJacobian() override;
 
+    virtual void computeGeometricStiffness() override;
+
 protected:
     // Default constructor (hidden).
     Hinge();

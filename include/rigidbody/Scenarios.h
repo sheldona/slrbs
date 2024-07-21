@@ -157,13 +157,13 @@ public:
         {
             // Create the next box in the chain.
             RigidBody* nextBox = nullptr;
-            if( i == (N-2) ) nextBox = new RigidBody(10000.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
-            else nextBox = new RigidBody(1.0f, new Box({ 1.0f, 1.0f, 1.0f }), "resources/box.obj");
-            nextBox->x = parent->x - Eigen::Vector3f(0.0f, 1.5f, 0.0f);
+            if (i == (N - 2)) nextBox = new RigidBody(10000.0f, new Box(dim), createBox(dim));
+            else nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+            nextBox->x = parent->x - dx;
 
             // Add a hinge between parent->nextBox
-            //Joint* j = new Hinge(parent, nextBox, { 0.0f, 0.0f, 0.0f }, Eigen::Quaternionf::Identity(), { 0.0f, 1.5f, 0.0f }, Eigen::Quaternionf::Identity());
-            Joint* j = new Spherical(parent, nextBox, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.5f, 0.0f });
+            Joint* j = new Hinge(parent, nextBox, -0.5f * dx, Eigen::Quaternionf::Identity(), 0.5f * dx, Eigen::Quaternionf::Identity());
+            //Joint* j = new Spherical(parent, nextBox, -0.5f * dx, 0.5f * dx);
 
             // Add new box and hinge to the rigid body system.
             rigidBodySystem.addBody(nextBox);
@@ -200,7 +200,7 @@ public:
         rigidBodySystem.addBody(plane);
     }
 
-    // Box hanging from a box
+    // Simple 4 wheeled car + hinges + box chassis
     //
     static void createCarScene(RigidBodySystem& rigidBodySystem)
     {
@@ -271,6 +271,61 @@ public:
         rigidBodySystem.addJoint(rfhinge);
         rigidBodySystem.addJoint(lrhinge);
         rigidBodySystem.addJoint(rrhinge);
+    }
+
+    // "Rope" bridge
+    static void createRopeBridgeScene(RigidBodySystem& rigidBodySystem)
+    {
+        rigidBodySystem.clear();
+        polyscope::removeAllStructures();
+
+        std::cout << "Loading bridge scenario." << std::endl;
+
+        const int N = 20;
+
+        const float dx = 0.6f;
+        const float y = 3.0f;
+        const float x0 = -(N / 2) * dx;
+        float x = x0;
+        // Create a box.
+        const Eigen::Vector3f dim({ 0.5f, 0.1f, 1.0f });
+        RigidBody* firstBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        firstBox->x = { x, y, 0.0f };
+        firstBox->fixed = true;
+        rigidBodySystem.addBody(firstBox);
+
+        RigidBody* parent = firstBox;
+        for (int i = 0; i < N - 1; ++i)
+        {
+            // Create the next box in the chain.
+            x += dx;
+            RigidBody* nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+            nextBox->x = { x, y, 0.0f };
+
+            // Add new box 
+            rigidBodySystem.addBody(nextBox);
+
+            // Add spherical joints between parent->nextBox
+            Joint* j0 = new Spherical(parent, nextBox, { dx / 2.0f, 0.0f, 0.5f }, { -dx / 2.0f, 0.0f, 0.5f });
+            Joint* j1 = new Spherical(parent, nextBox, { dx / 2.0f, 0.0f, -0.5f }, { -dx / 2.0f, 0.0f, -0.5f });
+
+            // Add spherical joints to the rigid body system.
+            rigidBodySystem.addJoint(j0);
+            rigidBodySystem.addJoint(j1);
+            parent = nextBox;
+        }
+        parent->fixed = true;
+
+        // Create a sphere.
+        const float radius = 0.5f;
+        RigidBody* bodySphere = new RigidBody(100.0f, new Sphere(radius), createSphere(radius));
+        bodySphere->x = { x0, y + 1.0f, 0.0f };
+        bodySphere->omega = { 0.0f, 0.0f, -5.0f };
+        bodySphere->xdot = { 1.0f, 0.0f, 0.0f };
+        bodySphere->mesh->setTransparency(0.8f);
+
+        rigidBodySystem.addBody(bodySphere);
+
     }
 
 };
