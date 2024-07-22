@@ -80,7 +80,10 @@ void RigidBody::updateInertiaMatrix()
     if( !fixed )
     {
         I = q * Ibody * q.inverse();
-        Iinv = q * IbodyInv * q.inverse();
+        for (int i = 0; i < 3; i++)
+            I(i, i) += gsDamp(i);
+
+        Iinv = I.inverse();
     }
     else
     {

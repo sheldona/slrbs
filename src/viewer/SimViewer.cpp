@@ -111,6 +111,7 @@ namespace
 
 SimViewer::SimViewer() :
     m_adaptiveTimesteps(false),
+    m_gsDamping(false),
     m_alpha(0.01f),
     m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
     m_paused(true), m_stepOnce(false),
@@ -194,7 +195,8 @@ void SimViewer::drawGUI()
 
     ImGui::PushItemWidth(100);
     ImGui::Checkbox("Adaptive time steps", &m_adaptiveTimesteps);
-    if (m_adaptiveTimesteps)
+    ImGui::Checkbox("Geometric stiffness damping", &m_gsDamping);
+    if (m_adaptiveTimesteps || m_gsDamping)
         ImGui::SliderFloat("Alpha", &m_alpha, 0.0f, 1.0f);
     ImGui::SliderFloat("Time step", &m_dt, 0.0f, 0.1f, "%.3f");
     ImGui::SliderInt("Num. sub-steps", &m_subSteps, 1, 20, "%u");
@@ -278,7 +280,7 @@ void SimViewer::draw()
 
                 for (int c = 0; c < 3; c++)
                 {
-                    const float m = b->I.col(c).norm();
+                    const float m = b->I(c, c);
                     const float k = b->gsSum.col(c + 3).norm();
                     maxK_M = std::max(k / m, maxK_M);
                 }
@@ -288,10 +290,40 @@ void SimViewer::draw()
             m_subSteps = std::max(1, (int)ceil(m_dt / dt));
         }
 
+        const float dt = m_dt / (float)m_subSteps;
+
+        // Compute the geometric stiffness damping term
+        for (auto b : m_rigidBodySystem->getBodies())
+            b->gsDamp.setZero();
+
+        if (m_gsDamping)
+        {
+            for (auto b : m_rigidBodySystem->getBodies())
+                b->gsSum.setZero();
+
+            for (auto j : m_rigidBodySystem->getJoints())
+            {
+                j->computeGeometricStiffness();
+                j->body0->gsSum += j->G0;
+                j->body1->gsSum += j->G1;
+            }
+
+            for (auto b : m_rigidBodySystem->getBodies())
+            {
+                if (b->fixed)
+                    continue;
+
+                for (int c = 0; c < 3; c++)
+                {
+                    const float m = b->I(c, c);
+                    const float k = b->gsSum.col(c + 3).norm();
+                    b->gsDamp(c) = std::max(0.0f, dt * k - 4 * m_alpha * m);
+                }
+            }
+        }
+
         // Step the simulation.
         // The time step dt is divided by the number of sub-steps.
-        //
-        const float dt = m_dt / (float)m_subSteps;
         for(int i = 0; i < m_subSteps; ++i)
         {
             m_rigidBodySystem->step(dt);

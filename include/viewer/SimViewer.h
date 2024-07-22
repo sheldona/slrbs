@@ -52,6 +52,7 @@ private:
 
     // Simulation parameters
     bool m_adaptiveTimesteps;
+    bool m_gsDamping;
     float m_alpha;
     float m_dt;                         // Time step parameter.
     int m_subSteps;

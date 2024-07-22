@@ -57,4 +57,5 @@ public:
     polyscope::SurfaceMesh* mesh;       // Used for rendering
 
     GBlock gsSum;                       // Sum of geometric stiffness blocks for this body
+    Eigen::Vector3f gsDamp;             // Damping to add to the moment matrix due to geometric stiffness
 };
