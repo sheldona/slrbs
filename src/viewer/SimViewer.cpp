@@ -360,7 +360,7 @@ void SimViewer::draw()
 
         const float kinEnergy = computeKineticEnergy(*m_rigidBodySystem);
         s_log.pushVal(s_kinEnergyIdx, kinEnergy);
-        s_log.pushVal(s_substepsIdx, m_subSteps);
+        s_log.pushVal(s_substepsIdx, (float)m_subSteps);
     }
 }
 

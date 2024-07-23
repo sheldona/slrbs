@@ -25,7 +25,7 @@ public:
         const int idx = m_fieldNames.size();
         m_fieldNames.push_back(_name);
         m_buf.push_back(std::vector<std::any>());
-        m_buf.reserve(256 * 1024);
+        m_buf.back().reserve(256 * 1024);
         return idx;
     }
 

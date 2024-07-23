@@ -28,7 +28,12 @@ void CSVLogger::save(const std::string& _filename)
     {
         for (int j = 0; j < ncols; ++j)
         {
-            fs << std::any_cast<float>(m_buf[j][i]);
+            if (i < m_buf[j].size())
+            {
+                // TODO need to fix this.  Assumes all types are float. 
+                fs << std::any_cast<float>(m_buf[j][i]);
+            }
+            
             if (j < ncols-1) fs << ",";
         }
         fs << std::endl;
