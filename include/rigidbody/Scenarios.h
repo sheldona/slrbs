@@ -145,11 +145,13 @@ public:
         const int N = 20;
 
         // Create a box.
-        const Eigen::Vector3f dim({ 1.0f, 1.0f, 1.0f });
+        Eigen::Vector3f dim({ 1.0f, 1.0f, 1.0f });
         RigidBody* topBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
-        topBox->x = { 0.0f, 1.5f*(float)N, 0.0f };
+        topBox->x = { 0.0f, 1.5f*(float)N + 2.5f, 0.0f };
         topBox->fixed = true;
         rigidBodySystem.addBody(topBox);
+
+        topBox->mesh->setSurfaceColor({ 1.0f, 1.0f, 0.1f })->setEdgeWidth(1.0f);
 
         const Eigen::Vector3f dx(0.0f, 1.5f, 0.0f);
         RigidBody* parent = topBox;
@@ -157,13 +159,27 @@ public:
         {
             // Create the next box in the chain.
             RigidBody* nextBox = nullptr;
-            if (i == (N - 2)) nextBox = new RigidBody(10000.0f, new Box(dim), createBox(dim));
-            else nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
-            nextBox->x = parent->x - dx;
+            Joint* j = nullptr;
+            if (i == (N - 2))
+            {
+                dim = { 4.0f, 4.0f, 4.0f };
+                nextBox = new RigidBody(1000.0f, new Box(dim), createBox(dim));
+                nextBox->mesh->setSurfaceColor({ 1.0f, 0.2f, 0.2f })->setEdgeWidth(1.0f);
+                const Eigen::Vector3f extraDx({ 0.0f, 3.5f, 0.0f });
+                nextBox->x = parent->x - extraDx;
 
-            // Add a hinge between parent->nextBox
-            Joint* j = new Hinge(parent, nextBox, -0.5f * dx, Eigen::Quaternionf::Identity(), 0.5f * dx, Eigen::Quaternionf::Identity());
-            //Joint* j = new Spherical(parent, nextBox, -0.5f * dx, 0.5f * dx);
+                // Add a hinge between large box and parent
+                j = new Hinge(parent, nextBox, -0.5f * extraDx, Eigen::Quaternionf::Identity(), 0.5f * extraDx, Eigen::Quaternionf::Identity());
+            }
+            else
+            {
+                nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+                nextBox->mesh->setSurfaceColor({ 0.1f, 0.2f, 1.0f })->setEdgeWidth(1.0f);
+                nextBox->x = parent->x - dx;
+
+                // Add a hinge between parent->nextBox
+                j = new Hinge(parent, nextBox, -0.5f * dx, Eigen::Quaternionf::Identity(), 0.5f * dx, Eigen::Quaternionf::Identity());
+            }
 
             // Add new box and hinge to the rigid body system.
             rigidBodySystem.addBody(nextBox);
@@ -293,6 +309,7 @@ public:
         firstBox->x = { x, y, 0.0f };
         firstBox->fixed = true;
         rigidBodySystem.addBody(firstBox);
+        firstBox->mesh->setSurfaceColor({ 1.0f, 1.0f, 0.1f });
 
         RigidBody* parent = firstBox;
         for (int i = 0; i < N - 1; ++i)
@@ -301,6 +318,7 @@ public:
             x += dx;
             RigidBody* nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
             nextBox->x = { x, y, 0.0f };
+            nextBox->mesh->setSurfaceColor({ 0.1f, 0.2f, 1.0f });
 
             // Add new box 
             rigidBodySystem.addBody(nextBox);
@@ -315,6 +333,8 @@ public:
             parent = nextBox;
         }
         parent->fixed = true;
+        parent->mesh->setSurfaceColor({ 1.0f, 1.0f, 0.1f });
+
 
         // Create a sphere.
         const float radius = 0.5f;
@@ -322,7 +342,7 @@ public:
         bodySphere->x = { x0, y + 1.0f, 0.0f };
         bodySphere->omega = { 0.0f, 0.0f, -5.0f };
         bodySphere->xdot = { 1.0f, 0.0f, 0.0f };
-        bodySphere->mesh->setTransparency(0.8f);
+        bodySphere->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setTransparency(0.8f);
 
         rigidBodySystem.addBody(bodySphere);
 
