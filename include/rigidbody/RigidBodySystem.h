@@ -10,8 +10,9 @@ class CollisionDetect;
 class Joint;
 class Solver;
 class RigidBody;
+class RigidBodySystem;
 
-typedef std::function<void(std::vector<RigidBody*>&)> PreStepFunc;
+typedef std::function<void(RigidBodySystem&,float)> PreStepFunc;
 typedef std::function<void()> ResetFunc;
 
 class RigidBodySystem

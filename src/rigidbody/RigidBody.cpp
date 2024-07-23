@@ -20,6 +20,7 @@ RigidBody::RigidBody(float _mass, Geometry* _geometry, const std::string& _filen
     tau(0,0,0),
     fc(0,0,0),
     tauc(0,0,0),
+    gsDamp(0, 0, 0), gsSum(GBlock::Zero()),
     geometry(_geometry),
     contacts(), joints(),
     mesh(nullptr)
@@ -58,8 +59,9 @@ RigidBody::RigidBody(float _mass, Geometry* _geometry, const Mesh& _mesh) :
     tau(0, 0, 0),
     fc(0, 0, 0),
     tauc(0, 0, 0),
+    gsDamp(0, 0, 0), gsSum(GBlock::Zero()),
     geometry(_geometry),
-    contacts(), joints(),
+    contacts(), joints(), 
     mesh(nullptr)
 {
     Ibody = geometry->computeInertia(mass);

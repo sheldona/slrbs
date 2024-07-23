@@ -71,6 +71,16 @@ set(util_SOURCE src/util/OBJLoader.cpp
 
 set(viewer_HEADERS include/viewer/SimViewer.h)
 set(viewer_SOURCE src/viewer/SimViewer.cpp)
+SET(
+    log_HEADERS 
+	include/log/Logger.h
+	include/log/CSVLogger.h 
+	)
+SET(log_SOURCE 
+	src/log/Logger.cpp
+	src/log/CSVLogger.cpp 
+	)	
+
         
 add_executable (slrbs main.cpp
           ${contact_HEADERS} ${contact_SOURCE} 
@@ -79,7 +89,9 @@ add_executable (slrbs main.cpp
           ${rigidbody_HEADERS} ${rigidbody_SOURCE}
           ${solver_HEADERS} ${solver_SOURCE}
 		  ${util_HEADERS} ${util_SOURCE}
-          ${viewer_HEADERS} ${viewer_SOURCE} )
+          ${viewer_HEADERS} ${viewer_SOURCE} 
+		  ${log_HEADERS} ${log_SOURCE}
+		  )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include ${Eigen_SRC_DIR} ${COMMON_INCLUDES})
 target_link_libraries(slrbs OpenGL::GL polyscope)
@@ -102,6 +114,9 @@ source_group(include/util FILES ${util_HEADERS})
 source_group(src/viewer FILES ${viewer_SOURCE})
 source_group(include/viewer FILES ${viewer_HEADERS})
 source_group(src/util FILES ${util_SOURCE})
+source_group(src/log FILES ${log_SOURCE})
+source_group(include/log FILES ${log_HEADERS})
+
 
 if(MSVC) 
 	set_property(TARGET slrbs PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

@@ -46,7 +46,7 @@ private:
     void draw();
     void drawGUI();
 
-    void preStep(std::vector<RigidBody*>&);
+    void preStep(RigidBodySystem& _rigidBodySystem, float h);
 
 private:
 
@@ -60,6 +60,7 @@ private:
     bool m_stepOnce;                    // Advance the simulation by one frame and then stop.
     bool m_enableCollisions;            // enable/disable collisions
     bool m_enableScreenshots;           // enable/disable saving screenshots
+    bool m_enableLogging;
     bool m_drawContacts;                // enable drawing contacts
     bool m_drawConstraints;             // enable constraint viz
     float m_dynamicsTime;               // Compute time for the dynamics step (in ms)

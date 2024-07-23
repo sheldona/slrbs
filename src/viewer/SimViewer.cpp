@@ -16,12 +16,16 @@
 #include "rigidbody/RigidBodySystem.h"
 #include "rigidbody/RigidBodyState.h"
 #include "rigidbody/Scenarios.h"
+#include "log/CSVLogger.h"
 
 using namespace std;
 
 namespace
 {
     static RigidBodySystem* m_rigidBodySystem = new RigidBodySystem;
+    static CSVLogger s_log;
+    static int s_substepsIdx = -1;
+    static int s_kinEnergyIdx = -1;
     
     static const char* strContacts = "contacts";
     static const char* strJointPoints = "jointsPoint";
@@ -106,6 +110,19 @@ namespace
         }
     }
 
+    static float computeKineticEnergy(RigidBodySystem& _rigidBodySystem)
+    {
+        float kinEnergy = 0.0f;
+        for (RigidBody* b : _rigidBodySystem.getBodies())
+        {
+            const auto I = b->q * b->Ibody * b->q.inverse();
+            kinEnergy += b->mass * b->xdot.squaredNorm();
+            kinEnergy += b->omega.dot(I * b->omega);
+        }
+
+        return 0.5f*kinEnergy;
+    }
+
 
 }
 
@@ -116,11 +133,16 @@ SimViewer::SimViewer() :
     m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
     m_paused(true), m_stepOnce(false),
     m_enableCollisions(true), m_enableScreenshots(false),
+    m_enableLogging(false),
     m_drawContacts(true), m_drawConstraints(true),
     m_resetState()
 {
+    s_kinEnergyIdx = s_log.addField("kin_energy");
+    s_substepsIdx = s_log.addField("substeps");
+
     m_resetState = std::make_unique<RigidBodySystemState>(*m_rigidBodySystem);
     reset();
+
 }
 
 SimViewer::~SimViewer()
@@ -132,6 +154,8 @@ void SimViewer::reset()
     std::cout << " ---- Reset ----- " << std::endl;
     m_resetState->restore(*m_rigidBodySystem);
     m_dynamicsTime = 0.0f;
+
+    s_log.clear();
 
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
@@ -171,7 +195,7 @@ void SimViewer::start()
     polyscope::state::userCallback = std::bind(&SimViewer::draw, this);
 
     // Add pre-step hook.
-    m_rigidBodySystem->setPreStepFunc(std::bind(&SimViewer::preStep, this, std::placeholders::_1));
+    m_rigidBodySystem->setPreStepFunc(std::bind(&SimViewer::preStep, this, std::placeholders::_1, std::placeholders::_2));
 
     // Show the window
     polyscope::show();
@@ -214,6 +238,11 @@ void SimViewer::drawGUI()
     ImGui::Checkbox("Draw contacts", &m_drawContacts);
     ImGui::Checkbox("Draw constraints", &m_drawConstraints);
     ImGui::Checkbox("Enable screenshots", &m_enableScreenshots);
+
+    if (ImGui::Button("Save log")) {
+        s_log.save("log.csv");
+    }
+    ImGui::Checkbox("Enable logging", &m_enableLogging);
 
     if (ImGui::Button("Sphere on box")) {
         createSphereOnBox();
@@ -292,35 +321,6 @@ void SimViewer::draw()
 
         const float dt = m_dt / (float)m_subSteps;
 
-        // Compute the geometric stiffness damping term
-        for (auto b : m_rigidBodySystem->getBodies())
-            b->gsDamp.setZero();
-
-        if (m_gsDamping)
-        {
-            for (auto b : m_rigidBodySystem->getBodies())
-                b->gsSum.setZero();
-
-            for (auto j : m_rigidBodySystem->getJoints())
-            {
-                j->computeGeometricStiffness();
-                j->body0->gsSum += j->G0;
-                j->body1->gsSum += j->G1;
-            }
-
-            for (auto b : m_rigidBodySystem->getBodies())
-            {
-                if (b->fixed)
-                    continue;
-
-                for (int c = 0; c < 3; c++)
-                {
-                    const float m = b->I(c, c);
-                    const float k = b->gsSum.col(c + 3).norm();
-                    b->gsDamp(c) = std::max(0.0f, dt * k - 4 * m_alpha * m);
-                }
-            }
-        }
 
         // Step the simulation.
         // The time step dt is divided by the number of sub-steps.
@@ -357,6 +357,10 @@ void SimViewer::draw()
 
         // Clear step-once flag.
         m_stepOnce = false;
+
+        const float kinEnergy = computeKineticEnergy(*m_rigidBodySystem);
+        s_log.pushVal(s_kinEnergyIdx, kinEnergy);
+        s_log.pushVal(s_substepsIdx, m_subSteps);
     }
 }
 
@@ -415,7 +419,42 @@ void SimViewer::createBridgeScene()
     polyscope::resetScreenshotIndex();
 }
 
-void SimViewer::preStep(std::vector<RigidBody*>& _bodies)
+void SimViewer::preStep(RigidBodySystem& rigidBodySystem, float h)
 {
-    // do something useful here?
+    auto& bodies = rigidBodySystem.getBodies();
+    auto& joints = rigidBodySystem.getJoints();
+
+    // Reset geometric stiffness damping values.
+    //
+    for (auto b : bodies)
+        b->gsDamp.setZero();
+
+    // Recompute geometric stiffness damping.
+    // The damping will be added to the bodies' inertia matrices during integration.
+    //
+    if (m_gsDamping)
+    {
+        for (auto b : bodies)
+            b->gsSum.setZero();
+
+        for (auto j : joints)
+        {
+            j->computeGeometricStiffness();
+            j->body0->gsSum += j->G0;
+            j->body1->gsSum += j->G1;
+        }
+
+        for (auto b : m_rigidBodySystem->getBodies())
+        {
+            if (b->fixed)
+                continue;
+
+            for (int c = 0; c < 3; c++)
+            {
+                const float m = b->I(c, c);
+                const float k = b->gsSum.col(c + 3).norm();
+                b->gsDamp(c) = std::max(0.0f, h * h * k - 4 * m_alpha * m);
+            }
+        }
+    }
 }
