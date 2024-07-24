@@ -130,7 +130,8 @@ SimViewer::SimViewer() :
     m_adaptiveTimesteps(false),
     m_gsDamping(false),
     m_alpha(0.01f),
-    m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
+    m_dt(0.01f), m_subSteps(1), 
+    m_dynamicsTime(0.0f), m_frameCounter(0),
     m_paused(true), m_stepOnce(false),
     m_enableCollisions(true), m_enableScreenshots(false),
     m_enableLogging(false),
@@ -154,6 +155,7 @@ void SimViewer::reset()
     std::cout << " ---- Reset ----- " << std::endl;
     m_resetState->restore(*m_rigidBodySystem);
     m_dynamicsTime = 0.0f;
+    m_frameCounter = 0;
 
     s_log.clear();
 
@@ -182,6 +184,9 @@ void SimViewer::start()
     polyscope::options::maxFPS = -1;
     polyscope::options::groundPlaneEnabled = true;
     polyscope::options::screenshotExtension = ".png";
+
+    polyscope::view::windowWidth = 1980;
+    polyscope::view::windowHeight = 1080;
 
     // initialize
     polyscope::init();
@@ -268,6 +273,7 @@ void SimViewer::drawGUI()
     }
 
     ImGui::Text("Step time: %3.3f ms", m_dynamicsTime);
+    ImGui::Text("Frame: %d ", m_frameCounter);
 
 }
 
