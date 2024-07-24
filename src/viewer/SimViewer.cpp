@@ -296,6 +296,13 @@ void SimViewer::draw()
                 j->body1->gsSum += j->G1;
             }
 
+            for (auto c : m_rigidBodySystem->getContacts())
+			{
+				c->computeGeometricStiffness();
+				c->body0->gsSum += c->G0;
+				c->body1->gsSum += c->G1;
+			}
+
             float maxK_M = 0.0f;
             for (auto b : m_rigidBodySystem->getBodies())
             {
@@ -424,6 +431,7 @@ void SimViewer::preStep(RigidBodySystem& rigidBodySystem, float h)
 {
     auto& bodies = rigidBodySystem.getBodies();
     auto& joints = rigidBodySystem.getJoints();
+    auto& contacts = rigidBodySystem.getContacts();
 
     // Reset geometric stiffness damping values.
     //
@@ -441,6 +449,13 @@ void SimViewer::preStep(RigidBodySystem& rigidBodySystem, float h)
             j->body0->gsSum += j->G0;
             j->body1->gsSum += j->G1;
         }
+
+        for (auto c : contacts)
+		{
+			c->computeGeometricStiffness();
+			c->body0->gsSum += c->G0;
+			c->body1->gsSum += c->G1;
+		}
 
         for (auto b : m_rigidBodySystem->getBodies())
         {

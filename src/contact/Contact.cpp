@@ -3,6 +3,22 @@
 
 float Contact::mu = 0.8f;
 
+namespace
+{
+    static inline Eigen::Matrix3f prodOfCrossProd(const Eigen::Vector3f& a, const Eigen::Vector3f& b)
+    {
+        float a0b0 = a(0) * b(0);
+        float a1b1 = a(1) * b(1);
+        float a2b2 = a(2) * b(2);
+        Eigen::Matrix3f m;
+        m << -a1b1 - a2b2, a(1)* b(0), a(2)* b(0),
+            a(0)* b(1), -a0b0 - a2b2, a(2)* b(1),
+            a(0)* b(2), a(1)* b(2), -a0b0 - a1b1;
+        return m;
+    }
+}
+
+
 Contact::Contact() : Joint(), p(), n(), t(), b()
 {
 
@@ -94,4 +110,18 @@ void Contact::computeJacobian()
 
     G0.setZero();
     G1.setZero();
+}
+
+void Contact::computeGeometricStiffness()
+{
+    const Eigen::Vector3f rr0 = body0->q * p;
+    const Eigen::Vector3f rr1 = body1->q * p;
+
+    const Eigen::Vector3f p0 = rr0 - body0->x;
+    const Eigen::Vector3f p1 = rr1 - body1->x;
+
+    G0.setZero();
+    G0.block<3, 3>(3, 3) = prodOfCrossProd(lambda.segment<3>(0), p0);
+    G1.setZero();
+    G1.block<3, 3>(3, 3) = -prodOfCrossProd(lambda.segment<3>(0), p1);
 }

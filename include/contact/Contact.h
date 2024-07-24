@@ -34,6 +34,7 @@ public:
     float pene;                 // Penetration
 
     virtual void computeJacobian();
+    virtual void computeGeometricStiffness();
 
     // Computes a contact frame using the contact normal @a n
     // and the provided direction @a dir, which is aligned with the first tangent direction.

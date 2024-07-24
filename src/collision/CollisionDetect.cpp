@@ -278,6 +278,54 @@ void CollisionDetect::collisionDetectCylinderPlane(RigidBody* body0, RigidBody* 
     
 }
 
+/*
+// Clip a polygon by a plane
+static std::vector<Eigen::Vector3f> clipPolygon(const std::vector<Eigen::Vector3f>& polygon, const Eigen::Vector3f& planeNormal, float planeOffset) {
+    std::vector<Eigen::Vector3f> result;
+    int size = polygon.size();
+
+    for (int i = 0; i < size; ++i) {
+        Eigen::Vector3f current = polygon[i];
+        Eigen::Vector3f next = polygon[(i + 1) % size];
+
+        float distCurrent = current.dot(planeNormal) - planeOffset;
+        float distNext = next.dot(planeNormal) - planeOffset;
+
+        if (distCurrent <= 0) {
+            result.push_back(current);
+        }
+
+        if (distCurrent * distNext < 0) {
+            Eigen::Vector3f edge = next - current;
+            float t = distCurrent / (distCurrent - distNext);
+            result.push_back(current + t * edge);
+        }
+    }
+
+    return result;
+}
+
+// Clip the incident face against the reference face
+static std::vector<Eigen::Vector3f> findContactPoints(const std::vector<Eigen::Vector3f>& incidentFace, const std::vector<Eigen::Vector3f>& referenceFace, const Eigen::Vector3f& referenceNormal) {
+    std::vector<Eigen::Vector3f> clippedPolygon = incidentFace;
+
+    for (int i = 0; i < 4; ++i) {
+        Eigen::Vector3f v1 = referenceFace[i];
+        Eigen::Vector3f v2 = referenceFace[(i + 1) % 4];
+        Eigen::Vector3f edge = v2 - v1;
+        Eigen::Vector3f planeNormal = referenceNormal.cross(edge).normalized();
+        float planeOffset = planeNormal.dot(v1);
+
+        clippedPolygon = clipPolygon(clippedPolygon, planeNormal, planeOffset);
+
+        if (clippedPolygon.empty()) {
+            break;
+        }
+    }
+
+    return clippedPolygon;
+}
+
 void CollisionDetect::collisionDetectBoxBox(RigidBody* body0, RigidBody* body1)
 {
     Box* box1 = dynamic_cast<Box*>(body0->geometry.get());
@@ -319,6 +367,9 @@ void CollisionDetect::collisionDetectBoxBox(RigidBody* body0, RigidBody* body1)
         }
     }
 
+    auto vertices1 = getVertices(*box1, body0->x, R1);
+    auto vertices2 = getVertices(*box2, body1->x, R2);
+
     // Check for separation on each axis
     float minPenetrationDepth = std::numeric_limits<float>::max();
     Eigen::Vector3f bestAxis;
@@ -326,7 +377,7 @@ void CollisionDetect::collisionDetectBoxBox(RigidBody* body0, RigidBody* body1)
 
     for (const auto& axis : axes) {
         Eigen::Vector3f axisNorm = axis.normalized();
-        if (axisNorm.squaredNorm() < 0.0001f)
+        if (axisNorm.squaredNorm() < 0.00001f)
             continue;
 
         // Project the vertices of both boxes onto the axis
@@ -340,9 +391,6 @@ void CollisionDetect::collisionDetectBoxBox(RigidBody* body0, RigidBody* body1)
             }
             return std::make_pair(minProj, maxProj);
         };
-
-        auto vertices1 = getVertices(*box1, body0->x, R1);
-        auto vertices2 = getVertices(*box2, body1->x, R2);
 
         auto [min1, max1] = project(vertices1);
         auto [min2, max2] = project(vertices2);
@@ -360,27 +408,38 @@ void CollisionDetect::collisionDetectBoxBox(RigidBody* body0, RigidBody* body1)
         }
     }
 
-    if (!collision || bestAxis.squaredNorm() < 0.0001f) 
+    if (!collision || bestAxis.squaredNorm() < 0.00001f) 
         return;
 
     // Compute contact points if collision is detected
     Eigen::Vector3f contactNormal = bestAxis;
     float penetrationDepth = minPenetrationDepth;
 
-    // Find the point of deepest penetration
-    for (const auto& vertex : getVertices(*box2, body1->x, R2)) {
-        double proj = vertex.dot(contactNormal);
-        if (proj <= penetrationDepth) {
-            Contact* cp = new Contact(body1, body0, vertex, contactNormal, -penetrationDepth);
-            m_contacts.push_back(cp);
+    // Identify the incident and reference faces
+    Eigen::Vector3f referenceNormal = bestAxis;
+    Eigen::Vector3f incidentNormal = -referenceNormal;
+
+    std::vector<Eigen::Vector3f> referenceFace, incidentFace;
+
+    for (int i = 0; i < 8; ++i) {
+        if ((vertices1[i] - body0->x).dot(referenceNormal) > 0) {
+            referenceFace.push_back(vertices1[i]);
+        }
+        if ((vertices2[i] - body1->x).dot(incidentNormal) > 0) {
+            incidentFace.push_back(vertices2[i]);
         }
     }
 
-    for (const auto& vertex : getVertices(*box1, body0->x, R1)) {
-        double proj = vertex.dot(contactNormal);
-        if (proj <= penetrationDepth) {
-            Contact* cp = new Contact(body0, body1, vertex, -contactNormal, -penetrationDepth);
-            m_contacts.push_back(cp);
-        }
+    if (referenceFace.size() != 4 || incidentFace.size() != 4) {
+        return; // Invalid face selection
+    }
+
+    // Clip the incident face against the reference face
+    auto clippedPoints = findContactPoints(incidentFace, referenceFace, referenceNormal);
+
+    // Create contacts from clipped points
+    for (const auto& point : clippedPoints) {
+        m_contacts.push_back(new Contact(body0, body1, point, referenceNormal, (float)(referenceNormal.dot(body0->x - point) - (box1->dim * 0.5f).dot(referenceNormal))));
     }
 }
+*/
