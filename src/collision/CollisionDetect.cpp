@@ -74,7 +74,7 @@ void CollisionDetect::detectCollisions()
             else if (body1->geometry->getType() == kBox &&
                 body0->geometry->getType() == kBox)
             {
-				collisionDetectBoxBox(body0, body1);
+				//collisionDetectBoxBox(body0, body1);
             }
         }
     }

@@ -35,7 +35,7 @@ public:
     void save();
 
 private:
-    void createBoxStack();
+    void createStack();
     void createMarbleBox();
     void createSphereOnBox();
     void createSwingingBox();

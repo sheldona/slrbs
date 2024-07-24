@@ -254,8 +254,8 @@ void SimViewer::drawGUI()
     if (ImGui::Button("Swinging box")) {
         createSwingingBox();
     }
-    if (ImGui::Button("Box stack")) {
-        createBoxStack();
+    if (ImGui::Button("Stack")) {
+        createStack();
     }
     if (ImGui::Button("Cylinder on plane")) {
         createCylinderOnPlane();
@@ -396,9 +396,9 @@ void SimViewer::createSwingingBox()
     polyscope::resetScreenshotIndex();
 }
 
-void SimViewer::createBoxStack()
+void SimViewer::createStack()
 {
-    Scenarios::createBoxStack(*m_rigidBodySystem);
+    Scenarios::createStack(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }
