@@ -229,6 +229,7 @@ void SimViewer::drawGUI()
     ImGui::RadioButton("PGS", &(m_rigidBodySystem->solverId), 0);  ImGui::SameLine();
     ImGui::RadioButton("Conj. Gradient (NO CONTACT)", &(m_rigidBodySystem->solverId), 1);
     ImGui::RadioButton("Conj. Residual (NO CONTACT)", &(m_rigidBodySystem->solverId), 2);
+    ImGui::RadioButton("BPP", &(m_rigidBodySystem->solverId), 3);
     ImGui::PopItemWidth();
 
     if (ImGui::Checkbox("Enable collision detecton", &m_enableCollisions)) {
@@ -434,9 +435,6 @@ void SimViewer::preStep(RigidBodySystem& rigidBodySystem, float h)
     //
     if (m_gsDamping)
     {
-        for (auto b : bodies)
-            b->gsSum.setZero();
-
         for (auto j : joints)
         {
             j->computeGeometricStiffness();
@@ -452,9 +450,12 @@ void SimViewer::preStep(RigidBodySystem& rigidBodySystem, float h)
             for (int c = 0; c < 3; c++)
             {
                 const float m = b->I(c, c);
-                const float k = b->gsSum.col(c + 3).norm();
+                const float k = 2.0f * b->gsSum.col(c + 3).norm();
                 b->gsDamp(c) = std::max(0.0f, h * h * k - 4 * m_alpha * m);
             }
+            // SA: seems we have to do this again here so that 
+            //  solver has most recent gs damping information
+            b->updateInertiaMatrix();
         }
     }
 }

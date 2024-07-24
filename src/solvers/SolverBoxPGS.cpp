@@ -10,9 +10,9 @@
 
 namespace
 {
-    static const float stabilization = 20.0f;
-    static const float alpha = stabilization * 2;
-    static const float beta = stabilization * stabilization * 2;
+    static const float stabilization = 50.0f;
+    static const float alpha = stabilization * 2.0f;
+    static const float beta = stabilization * stabilization * 2.0f;
 
     static inline void multAndSub(const JBlock& G, const Eigen::Vector3f& x, const Eigen::Vector3f& y, const float& a, Eigen::VectorXf& b)
     {

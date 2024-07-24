@@ -9,9 +9,9 @@
 
 namespace
 {
-    static const float stabilization = 20.0f;
-    static const float alpha = stabilization * 2;
-    static const float beta = stabilization* stabilization * 2;
+    static const float stabilization = 50.0f;
+    static const float alpha = stabilization * 2.0f;
+    static const float beta = stabilization* stabilization * 2.0f;
 
     static inline void multAndSub(const JBlock& G, const Eigen::Vector3f& x, const Eigen::Vector3f& y, const float& a, Eigen::VectorBlock<Eigen::VectorXf>& b)
     {
@@ -71,7 +71,7 @@ namespace
 
     static inline void computeAx(float h, const std::vector<Joint*>& joints, const Eigen::VectorXf& x, Eigen::VectorXf& Ax)
     {
-        static const float eps = 1e-9f + 1.0f / (h * h * beta + alpha);
+        static const float eps = 1e-6f + 1.0f / (h * h * beta + alpha);
         Ax.setZero();
         for (Joint* j : joints)
         {
@@ -105,7 +105,7 @@ void SolverConjResidual::solve(float h)
     const auto& bodies = m_rigidBodySystem->getBodies();
     const auto& joints = m_rigidBodySystem->getJoints();
     const unsigned int n_bodies = bodies.size();
-    const unsigned int n_joints = bodies.size();
+    const unsigned int n_joints = joints.size();
 
     unsigned int idx = 0;
     for (Joint* j : joints)
@@ -113,7 +113,6 @@ void SolverConjResidual::solve(float h)
         j->idx = idx;
         idx += j->dim;
     }
-
     Eigen::VectorXf x(idx), r(idx), p(idx), b(idx), Ax(idx), Ap(idx), Ar(idx), hi(idx), lo(idx);
 
     x.setZero();

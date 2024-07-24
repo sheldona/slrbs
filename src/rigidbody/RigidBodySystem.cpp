@@ -7,14 +7,16 @@
 #include "solvers/SolverBoxPGS.h"
 #include "solvers/SolverConjGradient.h"
 #include "solvers/SolverConjResidual.h"
+#include "solvers/SolverBoxBPP.h"
 
 namespace
 {
     // 0 = PGS
     // 1 = Conjugate Gradient
     // 2 = Conjugate residual
+    // 3 = BPP
     //
-    static Solver* s_solvers[3] = { nullptr, nullptr, nullptr };
+    static Solver* s_solvers[4] = { nullptr, nullptr, nullptr, nullptr };
 
 }
 
@@ -29,6 +31,7 @@ RigidBodySystem::RigidBodySystem() :
     s_solvers[0] = new SolverBoxPGS(this);
     s_solvers[1] = new SolverConjGradient(this);
     s_solvers[2] = new SolverConjResidual(this);
+    s_solvers[3] = new SolverBoxBPP(this);
 }
 
 RigidBodySystem::~RigidBodySystem()
@@ -62,6 +65,7 @@ void RigidBodySystem::step(float dt)
         b->fc.setZero();
         b->tauc.setZero();
         b->contacts.clear();
+        b->gsDamp.setZero();        // SA: need to reset gs damping coeffs here to have correct inertia
     }
 
     // Standard simulation pipeline.
@@ -180,7 +184,6 @@ void RigidBodySystem::calcConstraintForces(float dt)
     //
     s_solvers[solverId]->setMaxIter(solverIter);
     s_solvers[solverId]->solve(dt);
-
 
     for (const auto j : m_joints)
     {

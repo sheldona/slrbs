@@ -57,9 +57,11 @@ set(contact_SOURCE src/contact/Contact.cpp )
 
 set(solver_HEADERS include/solvers/Solver.h 
                    include/solvers/SolverBoxPGS.h
+                   include/solvers/SolverBoxBPP.h
 				   include/solvers/SolverConjGradient.h
 				   include/solvers/SolverConjResidual.h)
 set(solver_SOURCE src/solvers/SolverBoxPGS.cpp
+				  src/solvers/SolverBoxBPP.cpp
 				  src/solvers/SolverConjGradient.cpp
 	              src/solvers/SolverConjResidual.cpp)
 

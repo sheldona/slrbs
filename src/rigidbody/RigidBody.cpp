@@ -79,12 +79,12 @@ RigidBody::RigidBody(float _mass, Geometry* _geometry, const Mesh& _mesh) :
 
 void RigidBody::updateInertiaMatrix()
 {
+    I = q * Ibody * q.inverse();
+    for (int i = 0; i < 3; i++)
+        I(i, i) += gsDamp(i);
+
     if( !fixed )
     {
-        I = q * Ibody * q.inverse();
-        for (int i = 0; i < 3; i++)
-            I(i, i) += gsDamp(i);
-
         Iinv = I.inverse();
     }
     else
