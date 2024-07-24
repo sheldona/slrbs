@@ -310,14 +310,14 @@ void SimViewer::draw()
                 for (int c = 0; c < 3; c++)
                 {
                     const float m = b->mass;
-                    const float k = b->gsSum.col(c).norm();
+                    const float k = 2.0f * b->gsSum.col(c).norm();
                     maxK_M = std::max(k / m, maxK_M);
                 }
 
                 for (int c = 0; c < 3; c++)
                 {
                     const float m = b->I(c, c);
-                    const float k = b->gsSum.col(c + 3).norm();
+                    const float k = 2.0f * b->gsSum.col(c + 3).norm();
                     maxK_M = std::max(k / m, maxK_M);
                 }
             }
@@ -328,7 +328,6 @@ void SimViewer::draw()
 
         const float dt = m_dt / (float)m_subSteps;
 
-
         // Step the simulation.
         // The time step dt is divided by the number of sub-steps.
         for(int i = 0; i < m_subSteps; ++i)
@@ -337,6 +336,8 @@ void SimViewer::draw()
         }
 
         auto stop = std::chrono::high_resolution_clock::now();
+
+        ++m_frameCounter;
 
         updateRigidBodyMeshes(*m_rigidBodySystem);
 
