@@ -35,7 +35,8 @@ FetchContent_GetProperties(Eigen SOURCE_DIR Eigen_SRC_DIR BINARY_DIR Eigen_BIN_D
 
 set(collision_HEADERS include/collision/CollisionDetect.h 
                       include/collision/Geometry.h )
-set(collision_SOURCE src/collision/CollisionDetect.cpp ) 
+set(collision_SOURCE src/collision/CollisionDetect.cpp
+                     src/collision/CollisionDetectBoxBox.cpp) 
 
 set(rigidbody_HEADERS include/rigidbody/RigidBody.h
 					  include/rigidbody/RigidBodyState.h

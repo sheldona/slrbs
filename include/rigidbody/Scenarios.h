@@ -43,8 +43,24 @@ public:
                 rigidBodySystem.addBody(body2);
                 body2->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
                 body2->mesh->setTransparency(0.8f);
+                RigidBody* body3 = new RigidBody(1.0f, new Sphere(radius), createSphere(radius));
+                body3->x.x() = -4.0f + (float)i * 1.0f;
+                body3->x.z() = -4.0f + (float)j * 1.0f;
+                body3->x.y() = 4.0f;
+                rigidBodySystem.addBody(body3);
+                body3->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
+                body3->mesh->setTransparency(0.8f);
             }
         }
+
+        // Create big marble
+        RigidBody* big = new RigidBody(5000.0f, new Sphere(4.0f), createSphere(4.0f));
+        big->x.x() = 0;
+        big->x.z() = 0;
+        big->x.y() = 9.0f;
+        rigidBodySystem.addBody(big);
+        big->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
+        big->mesh->setTransparency(0.8f);
 
         // Create the box to hold the marbles.
         const Eigen::Vector3f sideDim(Eigen::Vector3f(0.4f, 4.0f, 10.0f));
@@ -123,10 +139,11 @@ public:
 
         rigidBodySystem.addBody(bodyBox);
 
-        for (int i = 0; i < 2; i++)
+        for (int i = 1; i <= 1; i++)
         {
-            RigidBody* box = new RigidBody(1.0f, new Box(Eigen::Vector3f(1.0f, 1.0f, 1.0f)), "resources/box.obj");
-            box->x.y() = 1.0f + i;
+            Eigen::Vector3f dim = { 1.0f / i, 1.0f, 1.0f / i };
+            RigidBody* box = new RigidBody(1.0f, new Box(dim), createBox(dim));
+            box->x.y() = i;
             box->mesh->setTransparency(0.8f);
             rigidBodySystem.addBody(box);
             box->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(1.0f);
