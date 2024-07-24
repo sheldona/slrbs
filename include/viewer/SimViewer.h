@@ -64,6 +64,7 @@ private:
     bool m_drawContacts;                // enable drawing contacts
     bool m_drawConstraints;             // enable constraint viz
     float m_dynamicsTime;               // Compute time for the dynamics step (in ms)
+    int m_frameCounter;                 // Frame number
     std::unique_ptr<RigidBodySystemState> m_resetState;
 
 };

@@ -187,7 +187,7 @@ public:
         // Create a box.
         Eigen::Vector3f dim({ 1.0f, 1.0f, 1.0f });
         RigidBody* topBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
-        topBox->x = { 0.0f, 1.5f*(float)N + 2.5f, 0.0f };
+        topBox->x = { 0.0f, 1.5f*(float)N + 3.0f, 0.0f };
         topBox->fixed = true;
         rigidBodySystem.addBody(topBox);
 
