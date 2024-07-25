@@ -179,7 +179,7 @@ void SimViewer::start()
     polyscope::options::ssaaFactor = 2;
     polyscope::options::openImGuiWindowForUserCallback = true;
     polyscope::options::groundPlaneHeightFactor = 0.0f; // adjust the plane height
-    polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::TileReflection;
+    polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::ShadowOnly;
     polyscope::options::buildGui = false;
     polyscope::options::maxFPS = -1;
     polyscope::options::groundPlaneEnabled = true;

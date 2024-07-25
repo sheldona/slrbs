@@ -119,7 +119,7 @@ public:
         rigidBodySystem.addBody(bodySphere);
         rigidBodySystem.addBody(bodyBox);
 
-        bodySphere->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(1.0f);
+        bodySphere->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(0.0f);
         bodyBox->mesh->setSurfaceColor({ 0.2f, 0.2f, 0.2f })->setSmoothShade(false)->setTransparency(0.4f);
     }
 
@@ -145,33 +145,37 @@ public:
             RigidBody* body1 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
             body1->x = { -4.0f, 1.5f * i - 0.5f, -4.0f };
             rigidBodySystem.addBody(body1);
-            body1->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
+            body1->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(0.0f);
             body1->mesh->setTransparency(0.8f);
+            body1->mesh->setSmoothShade(true);
 
             RigidBody* body2 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
             body2->x = { 4.0f, 1.5f * i - 0.5f, -4.0f };
             rigidBodySystem.addBody(body2);
-            body2->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
+            body2->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(0.0f);
             body2->mesh->setTransparency(0.8f);
+            body2->mesh->setSmoothShade(true);
 
             RigidBody* body3 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
             body3->x = { -4.0f, 1.5f * i - 0.5f, 4.0f };
             rigidBodySystem.addBody(body3);
-            body3->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
+            body3->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(0.0f);
             body3->mesh->setTransparency(0.8f);
+            body3->mesh->setSmoothShade(true);
 
             RigidBody* body4 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
             body4->x = { 4.0f, 1.5f * i - 0.5f, 4.0f };
             rigidBodySystem.addBody(body4);
-            body4->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
+            body4->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(0.0f);
             body4->mesh->setTransparency(0.8f);
+            body4->mesh->setSmoothShade(true);
 
             if (i < N)
             {
                 RigidBody* body5 = new RigidBody(1.0f, new Box(Eigen::Vector3f(10.0f, 0.5f, 10.0f)), createBox(Eigen::Vector3f(10, 0.5f, 10)));
                 body5->x = { 0, 1.5f * i + 0.25f, 0 };
                 rigidBodySystem.addBody(body5);
-                body5->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
+                body5->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f })->setEdgeWidth(0.0f);
                 body5->mesh->setTransparency(0.8f);
             }
         }
@@ -179,7 +183,7 @@ public:
         RigidBody* topBox = new RigidBody(20000.0f, new Box(Eigen::Vector3f(15.0f, 1.0f, 15.0f)), createBox(Eigen::Vector3f(15.0f, 1.0f, 15.0f)));
         topBox->x = { 0, 1.5f * N + 0.5f, 0 };
         rigidBodySystem.addBody(topBox);
-        topBox->mesh->setSurfaceColor({ 0.1f, 0.2f, 1.0f });
+        topBox->mesh->setSurfaceColor({ 0.1f, 0.2f, 1.0f })->setEdgeWidth(0.0f);
         topBox->mesh->setTransparency(0.8f);
     }
 
@@ -201,7 +205,8 @@ public:
         topBox->fixed = true;
         rigidBodySystem.addBody(topBox);
 
-        topBox->mesh->setSurfaceColor({ 1.0f, 1.0f, 0.1f })->setEdgeWidth(0.0f);
+        topBox->mesh->setSurfaceColor({ 1.0f, 1.0f, 0.1f });
+        topBox->mesh->setEdgeWidth(0.0f);
 
         const Eigen::Vector3f dx(0.0f, 1.5f, 0.0f);
         RigidBody* parent = topBox;
@@ -214,7 +219,8 @@ public:
             {
                 dim = { 4.0f, 4.0f, 4.0f };
                 nextBox = new RigidBody(1000.0f, new Box(dim), createBox(dim));
-                nextBox->mesh->setSurfaceColor({ 1.0f, 0.2f, 0.2f })->setEdgeWidth(1.0f);
+                nextBox->mesh->setSurfaceColor({ 1.0f, 0.2f, 0.2f });
+                nextBox->mesh->setEdgeWidth(0.0f);
                 const Eigen::Vector3f extraDx({ 0.0f, 2.75f, 0.0f });
                 nextBox->x = parent->x - extraDx;
 
@@ -224,7 +230,8 @@ public:
             else
             {
                 nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
-                nextBox->mesh->setSurfaceColor({ 0.1f, 0.2f, 1.0f })->setEdgeWidth(1.0f);
+                nextBox->mesh->setSurfaceColor({ 0.1f, 0.2f, 1.0f });
+                nextBox->mesh->setEdgeWidth(0.0f);
                 nextBox->x = parent->x - dx;
 
                 // Add a hinge between parent->nextBox
@@ -359,7 +366,7 @@ public:
         firstBox->x = { x, y, 0.0f };
         firstBox->fixed = true;
         rigidBodySystem.addBody(firstBox);
-        firstBox->mesh->setSurfaceColor({ 1.0f, 1.0f, 0.1f });
+        firstBox->mesh->setSurfaceColor({ 1.0f, 1.0f, 0.1f })->setEdgeWidth(0.0f);
 
         RigidBody* parent = firstBox;
         for (int i = 0; i < N - 1; ++i)
@@ -368,7 +375,7 @@ public:
             x += dx;
             RigidBody* nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
             nextBox->x = { x, y, 0.0f };
-            nextBox->mesh->setSurfaceColor({ 0.1f, 0.2f, 1.0f });
+            nextBox->mesh->setSurfaceColor({ 0.1f, 0.2f, 1.0f })->setEdgeWidth(0.0f);
 
             // Add new box 
             rigidBodySystem.addBody(nextBox);
@@ -392,7 +399,8 @@ public:
         bodySphere->x = { x0, y + 1.0f, 0.0f };
         bodySphere->omega = { 0.0f, 0.0f, -5.0f };
         bodySphere->xdot = { 1.0f, 0.0f, 0.0f };
-        bodySphere->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setTransparency(0.8f);
+        bodySphere->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(0.0f)->setTransparency(0.8f);
+        bodySphere->mesh->setSmoothShade(true);
 
         rigidBodySystem.addBody(bodySphere);
 
