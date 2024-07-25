@@ -8,7 +8,7 @@
 
 namespace
 {
-    static const float stabilization = 100.0f;
+    static const float stabilization = 1000.0f;
     static const float alpha = stabilization * 2.0f;
     static const float beta = stabilization * stabilization * 2.0f;
 
@@ -74,7 +74,6 @@ namespace
 
         for (auto c : contacts)
         {
-            const float gamma = 0.3f; // error reduction parameter
             const unsigned int dim = c->dim;
             b.segment(c->idx, dim) = -hinv * c->phi * (h * beta / (h * beta + alpha));
 
@@ -170,7 +169,7 @@ namespace
         for (auto c : contacts)
         {
             const unsigned int dim = c->dim;
-            const float eps = 1e-5f + 1.0f / (h * h * beta + alpha);
+            const float eps = 1.0f / (h * h * beta + alpha);
 
             A.block(c->idx, c->idx, dim, dim) = 1e-10f * Eigen::MatrixXf::Identity(dim, dim);
             A(c->idx, c->idx) += eps;

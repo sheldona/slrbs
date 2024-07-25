@@ -139,7 +139,8 @@ public:
 
         rigidBodySystem.addBody(bodyBox);
 
-        for (int i = 1; i <= 10; i++)
+        const int N = 10;
+        for (int i = 1; i <= N; i++)
         {
             RigidBody* body1 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
             body1->x = { -4.0f, 1.5f * i - 0.5f, -4.0f };
@@ -165,12 +166,21 @@ public:
             body4->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
             body4->mesh->setTransparency(0.8f);
 
-            RigidBody* body5 = new RigidBody(i < 10 ? 1.0f : 1000.0f, new Box(Eigen::Vector3f(10.0f, 0.5f, 10.0f)), createBox(Eigen::Vector3f(10, 0.5f, 10)));
-            body5->x = { 0, 1.5f * i + 0.25f, 0 };
-            rigidBodySystem.addBody(body5);
-            body5->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
-            body5->mesh->setTransparency(0.8f);
+            if (i < N)
+            {
+                RigidBody* body5 = new RigidBody(1.0f, new Box(Eigen::Vector3f(10.0f, 0.5f, 10.0f)), createBox(Eigen::Vector3f(10, 0.5f, 10)));
+                body5->x = { 0, 1.5f * i + 0.25f, 0 };
+                rigidBodySystem.addBody(body5);
+                body5->mesh->setSurfaceColor({ 1.0f, 0.1f, 0.1f });
+                body5->mesh->setTransparency(0.8f);
+            }
         }
+
+        RigidBody* topBox = new RigidBody(20000.0f, new Box(Eigen::Vector3f(15.0f, 1.0f, 15.0f)), createBox(Eigen::Vector3f(15.0f, 1.0f, 15.0f)));
+        topBox->x = { 0, 1.5f * N + 0.5f, 0 };
+        rigidBodySystem.addBody(topBox);
+        topBox->mesh->setSurfaceColor({ 0.1f, 0.2f, 1.0f });
+        topBox->mesh->setTransparency(0.8f);
     }
 
     // Box hanging from a box
@@ -185,13 +195,13 @@ public:
         const int N = 20;
 
         // Create a box.
-        Eigen::Vector3f dim({ 1.0f, 1.0f, 1.0f });
+        Eigen::Vector3f dim({ 0.25f, 1.5f, 0.25f });
         RigidBody* topBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
         topBox->x = { 0.0f, 1.5f*(float)N + 3.0f, 0.0f };
         topBox->fixed = true;
         rigidBodySystem.addBody(topBox);
 
-        topBox->mesh->setSurfaceColor({ 1.0f, 1.0f, 0.1f })->setEdgeWidth(1.0f);
+        topBox->mesh->setSurfaceColor({ 1.0f, 1.0f, 0.1f })->setEdgeWidth(0.0f);
 
         const Eigen::Vector3f dx(0.0f, 1.5f, 0.0f);
         RigidBody* parent = topBox;
@@ -205,7 +215,7 @@ public:
                 dim = { 4.0f, 4.0f, 4.0f };
                 nextBox = new RigidBody(1000.0f, new Box(dim), createBox(dim));
                 nextBox->mesh->setSurfaceColor({ 1.0f, 0.2f, 0.2f })->setEdgeWidth(1.0f);
-                const Eigen::Vector3f extraDx({ 0.0f, 3.5f, 0.0f });
+                const Eigen::Vector3f extraDx({ 0.0f, 2.75f, 0.0f });
                 nextBox->x = parent->x - extraDx;
 
                 // Add a hinge between large box and parent
