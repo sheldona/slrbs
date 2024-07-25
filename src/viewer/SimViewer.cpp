@@ -229,7 +229,7 @@ void SimViewer::drawGUI()
         ImGui::SliderFloat("Alpha", &m_alpha, 0.0f, 1.0f);
     ImGui::SliderFloat("Time step", &m_dt, 0.0f, 0.1f, "%.3f");
     ImGui::SliderInt("Num. sub-steps", &m_subSteps, 1, 20, "%u");
-    ImGui::SliderInt("Solver iters.", &(m_rigidBodySystem->solverIter), 1, 100, "%u");
+    ImGui::SliderInt("Solver iters.", &(m_rigidBodySystem->solverIter), 1, 1000, "%u");
     ImGui::SliderFloat("Friction coeff.", &(Contact::mu), 0.0f, 2.0f, "%.2f");
     ImGui::RadioButton("PGS", &(m_rigidBodySystem->solverId), 0);  ImGui::SameLine();
     ImGui::RadioButton("Conj. Gradient (NO CONTACT)", &(m_rigidBodySystem->solverId), 1);

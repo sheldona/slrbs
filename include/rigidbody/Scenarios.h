@@ -136,10 +136,11 @@ public:
         RigidBody* bodyBox = new RigidBody(1.0f, new Box(Eigen::Vector3f(10.0f, 1.0f, 10.0f)), createBox(Eigen::Vector3f(10, 1.0f, 10)));
         bodyBox->fixed = true;
         bodyBox->mesh->setSurfaceColor({ 0.2f, 0.2f, 0.2f })->setSmoothShade(false)->setTransparency(0.4f);
+        bodyBox->mesh->setEdgeWidth(0.0f);
 
         rigidBodySystem.addBody(bodyBox);
 
-        const int N = 10;
+        const int N = 4;
         for (int i = 1; i <= N; i++)
         {
             RigidBody* body1 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
