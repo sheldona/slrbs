@@ -8,7 +8,7 @@
 
 namespace
 {
-    static const float stabilization = 500.0f;
+    static const float stabilization = 250.0f;
     static const float alpha = stabilization * 2.0f;
     static const float beta = stabilization * stabilization * 2.0f;
 

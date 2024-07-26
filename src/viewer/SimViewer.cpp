@@ -420,6 +420,7 @@ void SimViewer::createSwingingBox()
 void SimViewer::createStack()
 {
     Scenarios::createStack(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
 }
