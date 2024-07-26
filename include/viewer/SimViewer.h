@@ -65,6 +65,9 @@ private:
     bool m_drawConstraints;             // enable constraint viz
     float m_dynamicsTime;               // Compute time for the dynamics step (in ms)
     int m_frameCounter;                 // Frame number
+    float m_kineticEnergy;              // System kinetic energy 
+    float m_constraintErr;               // Total constraint error 
+
     std::unique_ptr<RigidBodySystemState> m_resetState;
 
 };

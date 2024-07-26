@@ -130,8 +130,8 @@ SimViewer::SimViewer() :
     m_adaptiveTimesteps(false),
     m_gsDamping(false),
     m_alpha(0.01f),
-    m_dt(0.01f), m_subSteps(1), 
-    m_dynamicsTime(0.0f), m_frameCounter(0),
+    m_dt(0.01667f), m_subSteps(1), 
+    m_dynamicsTime(0.0f), m_frameCounter(0), m_kineticEnergy(0.0f), m_constraintErr(0.0f),
     m_paused(true), m_stepOnce(false),
     m_enableCollisions(true), m_enableScreenshots(false),
     m_enableLogging(false),
@@ -156,6 +156,8 @@ void SimViewer::reset()
     m_resetState->restore(*m_rigidBodySystem);
     m_dynamicsTime = 0.0f;
     m_frameCounter = 0;
+    m_kineticEnergy = 0.0f;
+    m_constraintErr = 0.0f;
 
     s_log.clear();
 
@@ -272,7 +274,9 @@ void SimViewer::drawGUI()
         createBridgeScene();
     }
 
+    ImGui::Text("Kinetic energy: %8.3f ", m_kineticEnergy);
     ImGui::Text("Step time: %3.3f ms", m_dynamicsTime);
+    ImGui::Text("Constraint error: %6.6f ", m_constraintErr);
     ImGui::Text("Frame: %d ", m_frameCounter);
 
 }
@@ -373,9 +377,19 @@ void SimViewer::draw()
         // Clear step-once flag.
         m_stepOnce = false;
 
-        const float kinEnergy = computeKineticEnergy(*m_rigidBodySystem);
-        s_log.pushVal(s_kinEnergyIdx, kinEnergy);
+
+        // Compute kinetic energy of all bodies
+        m_kineticEnergy = computeKineticEnergy(*m_rigidBodySystem);
+        s_log.pushVal(s_kinEnergyIdx, m_kineticEnergy);
         s_log.pushVal(s_substepsIdx, (float)m_subSteps);
+
+        // Compute total constraint error
+        m_constraintErr = 0.0f;
+        for (Joint* j : m_rigidBodySystem->getJoints())
+        {
+            m_constraintErr += j->phi.lpNorm<1>();
+        }
+
     }
 }
 
