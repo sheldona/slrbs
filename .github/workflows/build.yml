@@ -20,20 +20,22 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
         build_type: [Debug, Release]
         include:
-          - os: windows-latest
-            cc: cl
-            cxx: cl
+          # For Linux and macOS, keep the compiler settings
           - os: ubuntu-latest
             cc: gcc
             cxx: g++
           - os: macos-latest
             cc: clang
             cxx: clang++
+          # For Windows, don't specify compiler directly
+          - os: windows-latest
+            generator: "Visual Studio 17 2022"
 
     env:
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-      CC: ${{ matrix.cc }}
-      CXX: ${{ matrix.cxx }}
+      # Only set CC/CXX for non-Windows platforms
+      CC: ${{ contains(matrix.os, 'windows') && '' || matrix.cc }}
+      CXX: ${{ contains(matrix.os, 'windows') && '' || matrix.cxx }}
 
     steps:
       - name: Checkout repository
@@ -46,11 +48,17 @@ jobs:
         with:
           cmake-version: '3.23'
 
-      # Note: Using seanmiddleditch/gha-setup-ninja instead of actions/setup-ninja
+      # Use Ninja for Linux and macOS, but Visual Studio generator for Windows
       - name: Setup Ninja
+        if: matrix.os != 'windows-latest'
         uses: seanmiddleditch/gha-setup-ninja@v4
         with:
           version: '1.11.1'
+
+      # Setup Visual Studio environment for Windows
+      - name: Setup MSVC
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install ccache
         if: matrix.os == 'ubuntu-latest'
@@ -100,7 +108,23 @@ jobs:
           ./vcpkg install glm eigen3
         shell: cmd
 
-      - name: Configure CMake
+      # Use different configure commands for Windows vs. Linux/macOS
+      - name: Configure CMake (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -G "${{ matrix.generator }}" ^
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ^
+            -DUSE_OPENCV=OFF ^
+            -DUSE_TORCH=OFF ^
+            -DUSE_PYBIND=OFF ^
+            -DUSE_CCACHE=OFF ^
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake
+        shell: cmd
+
+      - name: Configure CMake (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         run: |
           mkdir -p build
           cd build
@@ -113,13 +137,31 @@ jobs:
             ${VCPKG_ROOT:+-DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake}
         shell: bash
 
-      - name: Build
+      # Build commands are different for Windows vs. Linux/macOS
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd build
+          cmake --build . --config ${{ matrix.build_type }} --parallel
+        shell: cmd
+
+      - name: Build (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         run: |
           cd build
           cmake --build . --config ${{ matrix.build_type }} --parallel
         shell: bash
 
-      - name: Run tests
+      # Test commands are different for Windows vs. Linux/macOS
+      - name: Run tests (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd build
+          ctest -C ${{ matrix.build_type }} --output-on-failure
+        shell: cmd
+
+      - name: Run tests (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         run: |
           cd build
           ctest -C ${{ matrix.build_type }} --output-on-failure

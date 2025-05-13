@@ -27,7 +27,8 @@ enum class IntegrationMethod {
     SYMPLECTIC_EULER,
     VERLET,
     RK4,
-    IMPLICIT_EULER
+    IMPLICIT_EULER,
+    NEWTON
 };
 
 // UI-compatible enum that maps to IntegrationMethod
@@ -36,11 +37,13 @@ enum class IntegratorType {
     SYMPLECTIC_EULER = 1,
     VERLET = 2,
     RK4 = 3,
-    IMPLICIT_EULER = 4
+    IMPLICIT_EULER = 4,
+    NEWTON = 5
 };
 
 // Solver types for constraint solving
 enum class SolverType {
+    BPP,
     PGS,
     CONJ_GRADIENT,
     CONJ_RESIDUAL,
@@ -131,6 +134,7 @@ private:
     void integrateVerlet(float dt);
     void integrateRK4(float dt);
     void integrateImplicitEuler(float dt);
+    void integrateNewton(float dt);
 
     // Members
     std::vector<RigidBody*> m_bodies;

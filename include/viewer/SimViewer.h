@@ -35,6 +35,25 @@ private:
     void createCarScene();
     void createStack();
 
+    // Additional scenarios
+    void createRopeBridge();
+    void createSphereSphereDistance();
+    void createSphereInsideBox();
+    void createBoxOnPlane();
+    void createCylinderSphereTest();
+    void createRopeLadder();
+
+    // Custom scenarios
+    void createCustomScenario1();
+    void createCustomScenario2();
+    void createCustomScenario3();
+    void createCustomScenario4();
+    void createCustomScenario5();
+    void createCustomScenario6();
+    void createCustomScenario7();
+    void createCustomScenario8();
+    void createCustomScenario9();
+
     // JSON scenario handling methods
     void loadScenarioFromJSON(const std::string& filename);
     void refreshScenariosList();
@@ -74,5 +93,4 @@ private:
     float m_kineticEnergy;              // System kinetic energy
     float m_constraintErr;               // Total constraint error
     bool m_showContactHits = true;
-
 };

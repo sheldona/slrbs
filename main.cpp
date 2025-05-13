@@ -7,7 +7,7 @@
 
 int main(int argc, char* argv[])
 {
-    std::srand(std::time(nullptr)); // use current time as seed for random generator
+    std::srand(std::time(nullptr));
 
     SimViewer app;
     app.start();

@@ -101,7 +101,21 @@ void Hinge::computeGeometricStiffness()
     G1.block<3, 3>(3, 3) += -prodOfCrossProd(lambda.segment<3>(0), p1);
     G1.block<3, 3>(3, 3) += unT.transpose();
     G1.block<3, 3>(3, 3) += vnT.transpose();
+}
 
+Hinge::Hinge(RigidBody* _body0, RigidBody* _body1,
+             const Eigen::Vector3f& _r0, const Eigen::Quaternionf& _q0,
+             const Eigen::Vector3f& _r1, const Eigen::Quaternionf& _q1,
+             const Eigen::Vector3f& _axis) :
+    Joint(_body0, _body1, _r0, _q0, _r1, _q1, kHinge)
+{
+    dim = 5;
+    J0.setZero(5, 6);
+    J1.setZero(5, 6);
+    J0Minv.setZero(5, 6);
+    J1Minv.setZero(5, 6);
+    phi.setZero(5);
+    lambda.setZero(5);
 }
 
 

@@ -337,7 +337,7 @@ void SimViewer::drawGUI()
 
         // Integrator selection with tooltip
         static const char* integrators[] = {
-            "Explicit Euler", "Symplectic Euler", "Verlet", "RK4", "Implicit Euler"
+            "Explicit Euler", "Symplectic Euler", "Verlet", "RK4", "Implicit Euler", "Newton"
         };
         int currentIntegrator = static_cast<int>(m_rigidBodySystem->getIntegratorType());
         if (ImGui::Combo("Integrator", &currentIntegrator, integrators, IM_ARRAYSIZE(integrators))) {
@@ -368,12 +368,12 @@ void SimViewer::drawGUI()
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Toggle to clamp extreme velocities.");
 
             float mv = m_rigidBodySystem->getMaxLinearVelocity();
-            if (ImGui::DragFloat("Max Lin Vel", &mv, 1.0f, 0.0f, 1000.0f))
+            if (ImGui::DragFloat("Max Lin Vel", &mv, 1.0f, 0.0f, 100000.0f))
                 m_rigidBodySystem->setMaxLinearVelocity(mv);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Max linear speed clamp.");
 
             float mav = m_rigidBodySystem->getMaxAngularVelocity();
-            if (ImGui::DragFloat("Max Ang Vel", &mav, 1.0f, 0.0f, 1000.0f))
+            if (ImGui::DragFloat("Max Ang Vel", &mav, 1.0f, 0.0f, 100000.0f))
                 m_rigidBodySystem->setMaxAngularVelocity(mav);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Max angular speed clamp.");
         }
@@ -381,6 +381,7 @@ void SimViewer::drawGUI()
         ImGui::Separator();
         ImGui::Text("Solver Type:");
         SolverType st = m_rigidBodySystem->getSolverType();
+        if (ImGui::RadioButton("BPP", st==SolverType::BPP)) m_rigidBodySystem->setSolverType(SolverType::BPP);
         if (ImGui::RadioButton("PGS", st==SolverType::PGS))           m_rigidBodySystem->setSolverType(SolverType::PGS);
         ImGui::SameLine();
         if (ImGui::RadioButton("PGSSM", st==SolverType::PGSSM))       m_rigidBodySystem->setSolverType(SolverType::PGSSM);
@@ -393,21 +394,64 @@ void SimViewer::drawGUI()
     ImGui::End();
 
     // Scenarios
-    ImGui::Begin("Scenarios", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    if (ImGui::CollapsingHeader("Built-in Scenarios", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        if (ImGui::CollapsingHeader("Built-in Scenarios", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (ImGui::Button("Sphere on box", ImVec2(150,0)))    createSphereOnBox();
-            ImGui::SameLine();
-            if (ImGui::Button("Marble box",    ImVec2(150,0)))    createMarbleBox();
-            if (ImGui::Button("Swinging box",  ImVec2(150,0)))    createSwingingBox();
-            ImGui::SameLine();
-            if (ImGui::Button("Cylinder on plane", ImVec2(150,0))) createCylinderOnPlane();
-            if (ImGui::Button("Create car scene",     ImVec2(150,0))) createCarScene();
-            if (ImGui::Button("Stack", ImVec2(150,0))) createStack();
+        // First row
+        if (ImGui::Button("Sphere on box", ImVec2(150,0)))    createSphereOnBox();
+        ImGui::SameLine();
+        if (ImGui::Button("Marble box",    ImVec2(150,0)))    createMarbleBox();
 
-        }
-        drawScenarioSelectionGUI();
+        // Second row
+        if (ImGui::Button("Swinging box",  ImVec2(150,0)))    createSwingingBox();
+        ImGui::SameLine();
+        if (ImGui::Button("Cylinder on plane", ImVec2(150,0))) createCylinderOnPlane();
+
+        // Third row
+        if (ImGui::Button("Car scene",     ImVec2(150,0)))    createCarScene();
+        ImGui::SameLine();
+        if (ImGui::Button("Stack",         ImVec2(150,0)))    createStack();
+
+        // Fourth row - Additional scenarios
+        if (ImGui::Button("Rope Bridge",   ImVec2(150,0)))    createRopeBridge();
+        ImGui::SameLine();
+        if (ImGui::Button("Sphere-Sphere", ImVec2(150,0)))    createSphereSphereDistance();
+
+        // Fifth row
+        if (ImGui::Button("Sphere in Box", ImVec2(150,0)))    createSphereInsideBox();
+        ImGui::SameLine();
+        if (ImGui::Button("Box on Plane",  ImVec2(150,0)))    createBoxOnPlane();
+
+        // Sixth row
+        if (ImGui::Button("Cylinder-Sphere", ImVec2(150,0)))  createCylinderSphereTest();
+        ImGui::SameLine();
+        if (ImGui::Button("Rope Ladder",   ImVec2(150,0)))    createRopeLadder();
+    }
+
+    // Also add a new collapsing header for custom scenarios
+    if (ImGui::CollapsingHeader("Custom Scenarios"))
+    {
+        // First row
+        if (ImGui::Button("Double Pendulum", ImVec2(150,0)))  createCustomScenario1();
+        ImGui::SameLine();
+        if (ImGui::Button("Spherical Joint", ImVec2(150,0)))  createCustomScenario2();
+
+        // Second row
+        if (ImGui::Button("2 Prismatics", ImVec2(150,0)))     createCustomScenario3();
+        ImGui::SameLine();
+        if (ImGui::Button("Box-Sphere Joint", ImVec2(150,0))) createCustomScenario4();
+
+        // Third row
+        if (ImGui::Button("3 Prismatics", ImVec2(150,0)))     createCustomScenario5();
+        ImGui::SameLine();
+        if (ImGui::Button("Hinge Joint", ImVec2(150,0)))      createCustomScenario6();
+
+        // Fourth row
+        if (ImGui::Button("Tensile Table", ImVec2(150,0)))    createCustomScenario7();
+        ImGui::SameLine();
+        if (ImGui::Button("Spheres in Box", ImVec2(150,0)))   createCustomScenario8();
+
+        // Fifth row
+        if (ImGui::Button("Box with Faces", ImVec2(150,0)))   createCustomScenario9();
     }
     ImGui::End();
 
@@ -777,6 +821,203 @@ void SimViewer::createStack()
         body->visualProperties.clear();
     }
     Scenarios::createStack(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createRopeBridge()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createRopeBridgeScene(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createSphereSphereDistance()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createSphereSphereDistance(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createSphereInsideBox()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createSphereInsideBox(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createBoxOnPlane()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createBoxOnPlane(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createCylinderSphereTest()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Eigen::AngleAxisf aa(0.0f, Eigen::Vector3f(0, 0, 1)); // Default angle
+    Scenarios::createCylinderSphereTest(*m_rigidBodySystem, aa);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createRopeLadder()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createRopeLadder(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+// Custom scenarios
+void SimViewer::createCustomScenario1()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createCustomScenario(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createCustomScenario2()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createCustomScenario2(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createCustomScenario3()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createCustomScenario3(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createCustomScenario4()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createCustomScenario4(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createCustomScenario5()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createCustomScenario5(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createCustomScenario6()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createCustomScenario6(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createCustomScenario7()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createCustomScenario7(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createCustomScenario8()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createCustomScenario8(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createCustomScenario9()
+{
+    polyscope::removeAllStructures();
+    g_visualProperties.clear();
+    for (auto* body : m_rigidBodySystem->getBodies()) {
+        body->visualProperties.clear();
+    }
+    Scenarios::createCustomScenario9(*m_rigidBodySystem);
     m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
