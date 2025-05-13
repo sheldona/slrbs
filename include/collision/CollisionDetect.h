@@ -35,6 +35,8 @@ private:
     void collisionDetectSphereBox(RigidBody* body0, RigidBody* body1);
     void collisionDetectCylinderPlane(RigidBody* body0, RigidBody* body1);
     void collisionDetectBoxBox(RigidBody* body0, RigidBody* body1);
+    void collisionDetectCylinderBox(RigidBody* body0, RigidBody* body1);
+    void collisionDetectCylinderCylinder(RigidBody* body0, RigidBody* body1);
 
     // The rigid body system containing all bodies
     RigidBodySystem* m_rigidBodySystem;

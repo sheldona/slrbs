@@ -176,6 +176,24 @@ void CollisionDetect::detectCollisions()
             {
                 collisionDetectBoxBox(body0, body1);
             }
+           // Test for cylinder-box collision
+            else if (body0->geometry->getType() == kCylinder &&
+                     body1->geometry->getType() == kBox)
+            {
+                collisionDetectCylinderBox(body0, body1);
+            }
+            // Test for box-cylinder collision (order swap)
+            else if (body1->geometry->getType() == kCylinder &&
+                     body0->geometry->getType() == kBox)
+            {
+                collisionDetectCylinderBox(body1, body0);
+            }
+            // Test for cylinder-cylinder collision
+            else if (body0->geometry->getType() == kCylinder &&
+                     body1->geometry->getType() == kCylinder)
+            {
+                collisionDetectCylinderCylinder(body0, body1);
+            }
         }
     }
 }
@@ -385,5 +403,110 @@ void CollisionDetect::collisionDetectCylinderPlane(RigidBody* body0, RigidBody* 
             contact->setFaceIndices(-1, 0);
             m_contacts.push_back(contact);
         }
+    }
+}
+
+
+void CollisionDetect::collisionDetectCylinderBox(RigidBody* cylBody, RigidBody* boxBody) {
+    // Early out if we don’t actually have a cylinder or box
+    Cylinder* cyl = dynamic_cast<Cylinder*>(cylBody->geometry.get());
+    Box*       box = dynamic_cast<Box*>(boxBody->geometry.get());
+    if (!cyl || !box) return;
+
+    // 1) Cylinder axis endpoints in world space
+    Eigen::Vector3f axisDir = cylBody->q * Eigen::Vector3f(0,1,0);
+    Eigen::Vector3f A = cylBody->x + 0.5f * cyl->height * axisDir;
+    Eigen::Vector3f B = cylBody->x - 0.5f * cyl->height * axisDir;
+
+    // 2) Transform endpoints into the box’s local frame
+    Eigen::Matrix3f RbT   = boxBody->q.toRotationMatrix().transpose();
+    Eigen::Vector3f A_loc = RbT * (A - boxBody->x);
+    Eigen::Vector3f B_loc = RbT * (B - boxBody->x);
+
+    // 3) Find closest point C_loc on segment A_loc–B_loc to the box AABB
+    Eigen::Vector3f AB  = B_loc - A_loc;
+    float          t   = AB.dot(-A_loc) / AB.squaredNorm();
+    t = std::clamp(t, 0.0f, 1.0f);
+    Eigen::Vector3f C_loc = A_loc + t * AB;
+
+    // 4) Clamp C_loc to the box’s half‐extents
+    Eigen::Vector3f half = box->dim * 0.5f;
+    Eigen::Vector3f Q_loc = C_loc.cwiseMax(-half).cwiseMin(half);
+
+    // 5) Compute squared distance in box‐local
+    Eigen::Vector3f diff = C_loc - Q_loc;
+    float          dist2 = diff.squaredNorm();
+
+    // If within radius, register a contact
+    if (dist2 <= cyl->radius * cyl->radius) {
+        // convert back to world
+        Eigen::Vector3f Q_world = boxBody->q * Q_loc + boxBody->x;
+        Eigen::Vector3f C_world = boxBody->q * C_loc + boxBody->x;
+
+        Eigen::Vector3f n   = (C_world - Q_world).normalized();
+        float           phi = std::sqrt(dist2) - cyl->radius;
+
+        // allocate and push
+        Contact* contact = new Contact(cylBody, boxBody, Q_world, n, phi);
+        m_contacts.push_back(contact);
+    }
+}
+
+
+ void CollisionDetect::collisionDetectCylinderCylinder(RigidBody* bodyA,
+                                                     RigidBody* bodyB) {
+    Cylinder* cA = dynamic_cast<Cylinder*>(bodyA->geometry.get());
+    Cylinder* cB = dynamic_cast<Cylinder*>(bodyB->geometry.get());
+    if (!cA || !cB) return;
+
+    // Build segment endpoints for both cylinders
+    Eigen::Vector3f u = bodyA->q * Eigen::Vector3f(0,1,0);
+    Eigen::Vector3f p0 = bodyA->x + 0.5f*cA->height*u;
+    Eigen::Vector3f p1 = bodyA->x - 0.5f*cA->height*u;
+
+    Eigen::Vector3f v = bodyB->q * Eigen::Vector3f(0,1,0);
+    Eigen::Vector3f q0 = bodyB->x + 0.5f*cB->height*v;
+    Eigen::Vector3f q1 = bodyB->x - 0.5f*cB->height*v;
+
+    // Compute closest points C on p0–p1 and D on q0–q1 (standard segment–segment)
+    Eigen::Vector3f   d1 = p1 - p0, d2 = q1 - q0, r = p0 - q0;
+    float a = d1.dot(d1), e = d2.dot(d2), f = d2.dot(r);
+    float s = 0, t = 0;
+    if (a <= 1e-6f && e <= 1e-6f) {
+        // both segments degenerate to points
+        s = t = 0.0f;
+    } else if (a <= 1e-6f) {
+        s = 0.0f;
+        t = std::clamp(f/e, 0.0f, 1.0f);
+    } else {
+        float c = d1.dot(r);
+        if (e <= 1e-6f) {
+            t = 0.0f;
+            s = std::clamp(-c/a, 0.0f, 1.0f);
+        } else {
+            float b = d1.dot(d2);
+            float denom = a*e - b*b;
+            if (denom != 0.0f) {
+                s = std::clamp((b*f - c*e)/denom, 0.0f, 1.0f);
+            }
+            t = std::clamp((b*s + f)/e, 0.0f, 1.0f);
+            // re-clamp s for the final t
+            if (t < 0.0f || t > 1.0f) {
+                t = std::clamp(t, 0.0f, 1.0f);
+                s = std::clamp((b*t - c)/a, 0.0f, 1.0f);
+            }
+        }
+    }
+    Eigen::Vector3f C = p0 + d1 * s;
+    Eigen::Vector3f D = q0 + d2 * t;
+    float dist2 = (C - D).squaredNorm();
+    float rsum  = cA->radius + cB->radius;
+
+    if (dist2 <= rsum*rsum) {
+        Eigen::Vector3f n   = (C - D).normalized();
+        Eigen::Vector3f pos = 0.5f*(C + D);
+        float           phi = std::sqrt(dist2) - rsum;
+        Contact* c = new Contact(bodyA, bodyB, pos, n, phi);
+        m_contacts.push_back(c);
     }
 }

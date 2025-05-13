@@ -972,7 +972,7 @@ void SimViewer::createCustomScenario5()
     for (auto* body : m_rigidBodySystem->getBodies()) {
         body->visualProperties.clear();
     }
-    Scenarios::createCustomScenario5(*m_rigidBodySystem);
+    Scenarios::createCustomScenario5(*m_rigidBodySystem, 1, 1, 1);
     m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();

@@ -20,21 +20,22 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
         build_type: [Debug, Release]
         include:
-          # For Linux and macOS, keep the compiler settings
+          # Linux uses GCC/G++
           - os: ubuntu-latest
             cc: gcc
             cxx: g++
+          # macOS uses Clang/Clang++
           - os: macos-latest
             cc: clang
             cxx: clang++
-          # For Windows, don't specify compiler directly
+          # Windows will pick VS2022 by generator
           - os: windows-latest
             generator: "Visual Studio 17 2022"
 
     env:
-      # Only set CC/CXX for non-Windows platforms
-      CC: ${{ contains(matrix.os, 'windows') && '' || matrix.cc }}
-      CXX: ${{ contains(matrix.os, 'windows') && '' || matrix.cxx }}
+      # Only set CC/CXX for non-Windows
+      CC: ${{ matrix.os == 'windows-latest' && '' || matrix.cc }}
+      CXX: ${{ matrix.os == 'windows-latest' && '' || matrix.cxx }}
 
     steps:
       - name: Checkout repository
@@ -47,22 +48,21 @@ jobs:
         with:
           cmake-version: '3.23'
 
-      # Use Ninja for Linux and macOS, but Visual Studio generator for Windows
-      - name: Setup Ninja
+      - name: Setup Ninja (Linux/macOS)
         if: matrix.os != 'windows-latest'
         uses: seanmiddleditch/gha-setup-ninja@v4
         with:
           version: '1.11.1'
 
-      # Setup Visual Studio environment for Windows
-      - name: Setup MSVC
+      - name: Setup MSVC (Windows)
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install ccache
+      - name: Install ccache (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get update && sudo apt-get install -y ccache
+          sudo apt-get update
+          sudo apt-get install -y ccache
 
       - name: Cache CPM
         uses: actions/cache@v4
@@ -81,24 +81,24 @@ jobs:
       - name: Install system dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get update && sudo apt-get install -y \
+          sudo apt-get update
+          sudo apt-get install -y \
             libopencv-dev libgl1-mesa-dev xorg-dev \
             libxinerama-dev libxcursor-dev libxi-dev
 
       - name: Install system dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          brew update && brew install opencv@4 eigen glm
+          brew update
+          brew install opencv@4 eigen glm libomp
 
-      # Note: For Windows, you may need to find alternative ways to install dependencies
-      # that were previously installed via vcpkg (glm, eigen3)
-
-      # Use different configure commands for Windows vs. Linux/macOS
+      # ───────────────────────────────────────────────────────────
+      # Configure for Windows
+      # ───────────────────────────────────────────────────────────
       - name: Configure CMake (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          mkdir -p build
-          cd build
+          mkdir build && cd build
           cmake .. -G "${{ matrix.generator }}" ^
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ^
             -DUSE_OPENCV=OFF ^
@@ -107,11 +107,13 @@ jobs:
             -DUSE_CCACHE=OFF
         shell: cmd
 
-      - name: Configure CMake (Linux/macOS)
-        if: matrix.os != 'windows-latest'
+      # ───────────────────────────────────────────────────────────
+      # Configure for Ubuntu
+      # ───────────────────────────────────────────────────────────
+      - name: Configure CMake (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          mkdir -p build
-          cd build
+          mkdir build && cd build
           cmake .. -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DUSE_OPENCV=OFF \
@@ -120,7 +122,30 @@ jobs:
             -DUSE_CCACHE=ON
         shell: bash
 
-      # Build commands are different for Windows vs. Linux/macOS
+      # ───────────────────────────────────────────────────────────
+      # Configure for macOS (with OpenMP and no AVX2)
+      # ───────────────────────────────────────────────────────────
+      - name: Configure CMake (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # point CMake at Homebrew’s libomp
+          export LDFLAGS="-L$(brew --prefix libomp)/lib"
+          export CPPFLAGS="-I$(brew --prefix libomp)/include"
+
+          mkdir build && cd build
+          cmake .. -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DUSE_OPENCV=OFF \
+            -DUSE_TORCH=OFF \
+            -DUSE_PYBIND=OFF \
+            -DUSE_CCACHE=ON \
+            -DUSE_OPENMP=ON \
+            -DUSE_SIMD_INTRINSICS=OFF
+        shell: bash
+
+      # ───────────────────────────────────────────────────────────
+      # Build
+      # ───────────────────────────────────────────────────────────
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -135,7 +160,9 @@ jobs:
           cmake --build . --config ${{ matrix.build_type }} --parallel
         shell: bash
 
-      # Test commands are different for Windows vs. Linux/macOS
+      # ───────────────────────────────────────────────────────────
+      # Test
+      # ───────────────────────────────────────────────────────────
       - name: Run tests (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -150,6 +177,9 @@ jobs:
           ctest -C ${{ matrix.build_type }} --output-on-failure
         shell: bash
 
+      # ───────────────────────────────────────────────────────────
+      # Upload artifact
+      # ───────────────────────────────────────────────────────────
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
