@@ -1,8 +1,14 @@
 #include "collision/CollisionDetect.h"
-
+#include "collision/AABB.h"
 #include "contact/Contact.h"
 #include "rigidbody/RigidBody.h"
 #include "rigidbody/RigidBodySystem.h"
+
+#include <numeric>
+#include <algorithm>
+#include <functional>
+#include <queue>
+#include <vector>
 
 
 namespace
@@ -124,79 +130,90 @@ int CollisionDetect::findFaceForContact(RigidBody* body, const Eigen::Vector3f& 
     return faceIndex;
 }
 
-void CollisionDetect::detectCollisions()
-{
-    // Next, loop over all pairs of bodies and test for contacts.
-    //
-    auto bodies = m_rigidBodySystem->getBodies();
-    for (unsigned int i = 0; i < bodies.size(); ++i)
-    {
-        for (unsigned int j = i + 1; j < bodies.size(); ++j)
-        {
-            RigidBody* body0 = bodies[i];
-            RigidBody* body1 = bodies[j];
+void CollisionDetect::detectCollisions() {
+  clear();
 
-            // Special case: skip tests for pairs of static bodies.
-            //
-            if (body0->fixed && body1->fixed)
-                continue;
+  auto& bodies = m_rigidBodySystem->getBodies();
+  size_t N = bodies.size();
+  if (N < 2) return;
 
-            // Test for sphere-sphere collision.
-            if (body0->geometry->getType() == kSphere &&
-                body1->geometry->getType() == kSphere)
-            {
-                collisionDetectSphereSphere(body0, body1);
-            }
-            // Test for sphere-box collision
-            else if (body0->geometry->getType() == kSphere &&
-                body1->geometry->getType() == kBox)
-            {
-                collisionDetectSphereBox(body0, body1);
-            }
-            // Test for box-sphere collision (order swap)
-            else if (body1->geometry->getType() == kSphere &&
-                body0->geometry->getType() == kBox)
-            {
-                collisionDetectSphereBox(body1, body0);
-            }
-            // Test for cylinder-plane collision
-            else if (body0->geometry->getType() == kCylinder &&
-                body1->geometry->getType() == kPlane)
-            {
-                collisionDetectCylinderPlane(body0, body1);
-            }
-            // Test for cylinder-plane collision
-            else if (body1->geometry->getType() == kCylinder &&
-                body0->geometry->getType() == kPlane)
-            {
-                collisionDetectCylinderPlane(body1, body0);
-            }
-            else if (body1->geometry->getType() == kBox &&
-                body0->geometry->getType() == kBox)
-            {
-                collisionDetectBoxBox(body0, body1);
-            }
-           // Test for cylinder-box collision
-            else if (body0->geometry->getType() == kCylinder &&
-                     body1->geometry->getType() == kBox)
-            {
-                collisionDetectCylinderBox(body0, body1);
-            }
-            // Test for box-cylinder collision (order swap)
-            else if (body1->geometry->getType() == kCylinder &&
-                     body0->geometry->getType() == kBox)
-            {
-                collisionDetectCylinderBox(body1, body0);
-            }
-            // Test for cylinder-cylinder collision
-            else if (body0->geometry->getType() == kCylinder &&
-                     body1->geometry->getType() == kCylinder)
-            {
-                collisionDetectCylinderCylinder(body0, body1);
-            }
-        }
+  // 1) Build world‐space AABBs
+  std::vector<AABB> boxes(N);
+  for (size_t i = 0; i < N; ++i) {
+    auto* b = bodies[i];
+    AABB local = b->geometry->computeAABB();
+    Eigen::Matrix3d R = b->q.toRotationMatrix().cast<double>();
+    Eigen::Vector3d T = b->x.cast<double>();
+    boxes[i] = local.transform(R, T);
+  }
+
+  // 2) Build a simple BVH over those boxes
+  struct Node { AABB box; int left=-1, right=-1, idx=-1; };
+  std::vector<Node> nodes;
+  nodes.reserve(2*N);
+  std::vector<int> order(N);
+  std::iota(order.begin(), order.end(), 0);
+
+  std::function<int(int,int)> build = [&](int l, int r)->int {
+    int id = nodes.size();
+    nodes.push_back({});
+    Node& nd = nodes.back();
+    nd.box = boxes[order[l]];
+    for (int i = l+1; i < r; ++i) nd.box.expand(boxes[order[i]].min), nd.box.expand(boxes[order[i]].max);
+    if (r - l == 1) {
+      nd.idx = order[l];
+    } else {
+      auto ext = nd.box.getHalfExtents()*2.0;
+      int axis = (ext.x()>ext.y()&&ext.x()>ext.z()?0:(ext.y()>ext.z()?1:2));
+      double mid = nd.box.min[axis] + ext[axis]*0.5;
+      auto mIt = std::partition(order.begin()+l, order.begin()+r,
+                        [&](int i){ return boxes[i].getCenter()[axis] < mid; });
+      int m = int(std::distance(order.begin(), mIt));
+      if (m==l||m==r) m = l + (r-l)/2;
+      nd.left  = build(l, m);
+      nd.right = build(m, r);
     }
+    return id;
+  };
+  int root = build(0, int(N));
+
+  // 3) Query all overlapping leaf‐leaf pairs
+  std::vector<std::pair<int,int>> culled;
+  culled.reserve(N);
+  std::function<void(int,int)> query = [&](int a,int b){
+    if (!nodes[a].box.overlaps(nodes[b].box)) return;
+    if (nodes[a].idx>=0 && nodes[b].idx>=0) {
+      int i = nodes[a].idx, j = nodes[b].idx;
+      if (i<j) culled.emplace_back(i,j);
+    } else if (nodes[a].idx<0) {
+      query(nodes[a].left, b);
+      query(nodes[a].right,b);
+    } else {
+      query(a,nodes[b].left);
+      query(a,nodes[b].right);
+    }
+  };
+  query(root, root);
+
+  // 4) Narrow‐phase on surviving pairs
+  for (auto [i,j] : culled) {
+    auto* A = bodies[i];
+    auto* B = bodies[j];
+    if (A->fixed && B->fixed) continue;
+    auto tA = A->geometry->getType();
+    auto tB = B->geometry->getType();
+    if      (tA==kSphere   && tB==kSphere)   collisionDetectSphereSphere(A,B);
+    else if (tA==kSphere   && tB==kBox)      collisionDetectSphereBox   (A,B);
+    else if (tA==kBox      && tB==kSphere)   collisionDetectSphereBox   (B,A);
+    else if (tA==kCylinder && tB==kPlane)    collisionDetectCylinderPlane(A,B);
+    else if (tA==kPlane    && tB==kCylinder) collisionDetectCylinderPlane(B,A);
+    else if (tA==kBox      && tB==kBox)      collisionDetectBoxBox      (A,B);
+    else if (tA==kCylinder && tB==kBox)      collisionDetectCylinderBox (A,B);
+    else if (tA==kBox      && tB==kCylinder) collisionDetectCylinderBox (B,A);
+    else if (tA==kCylinder && tB==kCylinder) collisionDetectCylinderCylinder(A,B);
+  }
 }
+
 
 void CollisionDetect::computeContactJacobians()
 {
