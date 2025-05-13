@@ -1,6 +1,8 @@
 #pragma once
 
 #include "util/Types.h"
+#include "collision/BVH.h"
+#include "collision/AABB.h"
 #include <memory>
 #include <vector>
 #include <string>
@@ -66,6 +68,9 @@ private:
     // Pre-step callback with geometric stiffness support
     void preStep(RigidBodySystem& system, float h);
 
+    void showAllMeshBVHs();
+    void showAllMeshAABBs();
+
 private:
     // Simulation parameters
     float m_dt;                         // Time step parameter
@@ -93,4 +98,15 @@ private:
     float m_kineticEnergy;              // System kinetic energy
     float m_constraintErr;              // Total constraint error
     bool m_showContactHits = true;
+
+    // Toggle flags for visualization
+    bool m_showMeshBVH   = false;
+    bool m_showMeshAABB  = false;
+
+    // BVH and AABB helpers
+    BVH  m_meshBVH;
+    AABB m_sceneAABB;
+
+    bool m_showAllBVHs  = false;
+    bool m_showAllAABBs = false;
 };

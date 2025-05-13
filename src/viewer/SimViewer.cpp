@@ -12,6 +12,10 @@
 #include <chrono>
 #include <iostream>
 #include <functional>
+#include <limits>
+#include <array>
+#include <queue>
+#include <limits>
 
 #include "contact/Contact.h"
 #include "contact/FaceContactTracker.h"
@@ -20,6 +24,11 @@
 #include "rigidbody/Scenarios.h"
 #include "util/ScenarioLoader.h"
 #include "util/VisualProperties.h"
+#include "collision/BVH.h"
+#include "collision/AABB.h"
+
+
+
 
 using namespace std;
 
@@ -328,6 +337,41 @@ void SimViewer::drawGUI()
         ImGui::Checkbox("Show contact hits", &m_showContactHits);
         FaceContactTracker::setVisualizationEnabled(m_showContactHits);
     }
+    ImGui::Separator();
+    ImGui::Text("Geometry Visualization");
+
+    // Toggle for showing every body's BVH
+    if (ImGui::Checkbox("Show All Mesh BVHs", &m_showAllBVHs)) {
+        if (!m_showAllBVHs) {
+            // Remove any existing per-body BVH networks
+            auto& bodies = m_rigidBodySystem->getBodies();
+            for (auto* b : bodies) {
+                if (b->mesh) {
+                    polyscope::removeCurveNetwork("BVH_" + b->mesh->name, /*errorIfAbsent=*/false);
+                }
+            }
+        }
+    }
+    if (m_showAllBVHs) {
+        showAllMeshBVHs();
+    }
+
+    // Toggle for showing every body's AABB
+    if (ImGui::Checkbox("Show All Mesh AABBs", &m_showAllAABBs)) {
+        if (!m_showAllAABBs) {
+            // Remove any existing per-body AABB networks
+            auto& bodies = m_rigidBodySystem->getBodies();
+            for (auto* b : bodies) {
+                if (b->mesh) {
+                    polyscope::removeCurveNetwork("AABB_" + b->mesh->name, /*errorIfAbsent=*/false);
+                }
+            }
+        }
+    }
+    if (m_showAllAABBs) {
+        showAllMeshAABBs();
+    }
+
     ImGui::End();
 
     ImGui::Begin("Solver Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
@@ -1089,7 +1133,6 @@ void SimViewer::preStep(RigidBodySystem& system, float h) {
     }
 }
 
-
 void SimViewer::drawColorDebugUI()
 {
     if (ImGui::Button("Reset to Default"))
@@ -1100,4 +1143,139 @@ void SimViewer::drawColorDebugUI()
         }
         updateRigidBodyMeshes(*m_rigidBodySystem);
     }
+}
+void SimViewer::showAllMeshBVHs() {
+  auto& bodies = m_rigidBodySystem->getBodies();
+  for (auto* b : bodies) {
+    auto* mesh = b->mesh;
+    if (!mesh) continue;
+
+    // Unique name per‐body
+    std::string netName = "BVH_" + mesh->name;
+    polyscope::removeCurveNetwork(netName, /*errorIfAbsent=*/false);
+
+    // Pull back local vertices & indices
+    mesh->vertexPositions.ensureHostBufferPopulated();
+    const auto& verts = mesh->vertexPositions.getPopulatedHostBufferRef();
+    mesh->triangleVertexInds.ensureHostBufferPopulated();
+    const auto& inds = mesh->triangleVertexInds.getPopulatedHostBufferRef();
+
+    // Build BVH in local space
+    std::vector<glm::ivec3> tris;
+    tris.reserve(inds.size()/3);
+    for (size_t i = 0; i+2 < inds.size(); i += 3) {
+      tris.emplace_back((int)inds[i], (int)inds[i+1], (int)inds[i+2]);
+    }
+    BVH bvh(10);
+    bvh.build(verts, tris);
+    const BVHNode* root = bvh.getRoot();
+    if (!root) continue;
+
+    // Grab the mesh->transform (world) matrix
+    glm::mat4 T = mesh->getTransform();
+
+    // Traverse and collect line segments + per‐node color
+    struct Item { const BVHNode* node; int depth; };
+    std::queue<Item> q;
+    q.push({root,0});
+    std::vector<Eigen::Vector3d> pts;
+    std::vector<std::array<size_t,2>> edges;
+    std::vector<Eigen::Vector3d> cols;
+
+    auto colorForDepth = [&](int d){
+      float h = fmod(d*0.618033988749895f,1.0f), s=0.8f, v=1.0f;
+      float c=v*s, x=c*(1-std::abs(fmod(h*6,2)-1)), m=v-c;
+      float r,g,b;
+      if      (h<1/6.0f){r=c;g=x;b=0;} else if(h<2/6.0f){r=x;g=c;b=0;}
+      else if (h<3/6.0f){r=0;g=c;b=x;} else if(h<4/6.0f){r=0;g=x;b=c;}
+      else if (h<5/6.0f){r=x;g=0;b=c;} else {r=c;g=0;b=x;}
+      return Eigen::Vector3d(r+m,g+m,b+m);
+    };
+
+    static const std::array<std::array<size_t,2>,12> eidx = { {
+      {{0,1}},{{1,2}},{{2,3}},{{3,0}},
+      {{4,5}},{{5,6}},{{6,7}},{{7,4}},
+      {{0,4}},{{1,5}},{{2,6}},{{3,7}}
+    } };
+
+    while (!q.empty()) {
+      auto [n,d] = q.front(); q.pop();
+      size_t base = pts.size();
+
+      // eight local‐space corners
+      glm::vec3 mn(n->bounds.min.x(),n->bounds.min.y(),n->bounds.min.z());
+      glm::vec3 mx(n->bounds.max.x(),n->bounds.max.y(),n->bounds.max.z());
+      std::array<glm::vec3,8> localCorners = {{
+        {mn.x,mn.y,mn.z},{mx.x,mn.y,mn.z},{mx.x,mx.y,mn.z},{mn.x,mx.y,mn.z},
+        {mn.x,mn.y,mx.z},{mx.x,mn.y,mx.z},{mx.x,mx.y,mx.z},{mn.x,mx.y,mx.z}
+      }};
+
+      // transform them to world, record
+      auto col = colorForDepth(d);
+      for (auto& v : localCorners) {
+        glm::vec4 w = T * glm::vec4(v,1.0f);
+        pts.emplace_back(w.x, w.y, w.z);
+        cols.push_back(col);
+      }
+      for (auto& e : eidx) {
+        edges.push_back({{base + e[0], base + e[1]}});
+      }
+
+      if (n->left ) q.push({n->left .get(), d+1});
+      if (n->right) q.push({n->right.get(), d+1});
+    }
+
+    // register
+    auto* net = polyscope::registerCurveNetwork(netName, pts, edges);
+    net->setRadius(0.001f);
+    net->addNodeColorQuantity("depth", cols)->setEnabled(true);
+  }
+}
+
+
+void SimViewer::showAllMeshAABBs() {
+  auto& bodies = m_rigidBodySystem->getBodies();
+  for (auto* b : bodies) {
+    auto* mesh = b->mesh;
+    if (!mesh) continue;
+
+    std::string netName = "AABB_" + mesh->name;
+    polyscope::removeCurveNetwork(netName, /*errorIfAbsent=*/false);
+
+    // pull local verts
+    mesh->vertexPositions.ensureHostBufferPopulated();
+    const auto& verts = mesh->vertexPositions.getPopulatedHostBufferRef();
+
+    // compute local min/max
+    glm::vec3 mn( std::numeric_limits<float>::infinity());
+    glm::vec3 mx(-std::numeric_limits<float>::infinity());
+    for (auto& v : verts) {
+      mn = glm::min(mn, v);
+      mx = glm::max(mx, v);
+    }
+
+    // world transform
+    glm::mat4 T = mesh->getTransform();
+
+    // build & transform corners
+    std::vector<glm::vec3> pts;
+    pts.reserve(8);
+    for (auto &lc : std::array<glm::vec3,8>{{
+      {mn.x,mn.y,mn.z},{mx.x,mn.y,mn.z},{mx.x,mx.y,mn.z},{mn.x,mx.y,mn.z},
+      {mn.x,mn.y,mx.z},{mx.x,mn.y,mx.z},{mx.x,mx.y,mx.z},{mn.x,mx.y,mx.z}
+    }}) {
+      glm::vec4 w = T * glm::vec4(lc,1.0f);
+      pts.emplace_back(w.x, w.y, w.z);
+    }
+
+    static const std::array<std::array<size_t,2>,12> es = { {
+      {{0,1}},{{1,2}},{{2,3}},{{3,0}},
+      {{4,5}},{{5,6}},{{6,7}},{{7,4}},
+      {{0,4}},{{1,5}},{{2,6}},{{3,7}}
+    } };
+    std::vector<std::array<size_t,2>> edges(es.begin(), es.end());
+
+    auto* net = polyscope::registerCurveNetwork(netName, pts, edges);
+    net->setRadius(0.002f);
+  }
 }
