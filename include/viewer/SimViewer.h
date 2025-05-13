@@ -91,6 +91,6 @@ private:
     bool m_showUV = false;
     int m_frameCounter;                 // Frame number
     float m_kineticEnergy;              // System kinetic energy
-    float m_constraintErr;               // Total constraint error
+    float m_constraintErr;              // Total constraint error
     bool m_showContactHits = true;
 };

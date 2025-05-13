@@ -22,6 +22,113 @@
 class Scenarios
 {
 public:
+
+
+    /**
+     * @enum ScenarioID
+     * @brief Identifies each available scenario
+     */
+    enum ScenarioID {
+        MARBLE_BOX = 0,
+        SPHERE_ON_BOX,
+        SWINGING_BOXES,
+        CYLINDER_ON_PLANE,
+        CAR_SCENE,
+        STACK,
+        ROPE_BRIDGE,
+        SPHERE_SPHERE_DISTANCE,
+        SPHERE_INSIDE_BOX,
+        BOX_ON_PLANE,
+        CYLINDER_SPHERE_TEST,
+        ROPE_LADDER,
+        CUSTOM_DOUBLE_PENDULUM,
+        CUSTOM_SPHERICAL_JOINT,
+        CUSTOM_TWO_PRISMATICS,
+        CUSTOM_BOX_SPHERE_JOINT,
+        CUSTOM_THREE_PRISMATICS,
+        CUSTOM_HINGE_JOINT,
+        CUSTOM_TENSILE_TABLE,
+        CUSTOM_HOLLOW_BOX,
+        CUSTOM_BOX_WITH_FACES
+    };
+
+    /**
+     * @struct ScenarioInfo
+     * @brief Contains metadata about a simulation scenario
+     */
+    struct ScenarioInfo {
+        ScenarioID id;
+        std::string name;
+        std::string description;
+        std::string thumbnailPath;  // Path to a thumbnail image if available
+        std::function<void(RigidBodySystem&)> createFunction;
+    };
+
+    /**
+     * @brief Get list of all available scenarios with metadata
+     * @return Vector of ScenarioInfo for all available scenarios
+     */
+    static std::vector<ScenarioInfo> getAvailableScenarios() {
+        return {
+            {MARBLE_BOX, "Marble Box", "Box filled with marble spheres", "", createMarbleBox},
+            {SPHERE_ON_BOX, "Sphere on Box", "Simple sphere falling onto a box", "", createSphereOnBox},
+            {SWINGING_BOXES, "Swinging Boxes", "Chain of boxes connected by hinges", "", createSwingingBoxes},
+            {CYLINDER_ON_PLANE, "Cylinder on Plane", "Cylinder-plane collision test", "", createCylinderOnPlane},
+            {CAR_SCENE, "Car Scene", "Car with chassis and wheels", "", createCarScene},
+            {STACK, "Stack", "Stack of objects under pressure", "", createStack},
+            {ROPE_BRIDGE, "Rope Bridge", "Flexible bridge with a rolling sphere", "", createRopeBridgeScene},
+            {SPHERE_SPHERE_DISTANCE, "Sphere-Sphere Distance", "Distance constraint between spheres", "", createSphereSphereDistance},
+            {SPHERE_INSIDE_BOX, "Sphere in Box", "Sphere constrained inside a box", "", createSphereInsideBox},
+            {BOX_ON_PLANE, "Box on Plane", "Box resting on an angled plane", "", createBoxOnPlane},
+            {CYLINDER_SPHERE_TEST, "Cylinder-Sphere Test", "Sphere falling onto a cylinder", "",
+                [](RigidBodySystem& system) { createCylinderSphereTest(system, Eigen::AngleAxisf(0.0f, Eigen::Vector3f(0, 0, 1))); }
+            },
+            {ROPE_LADDER, "Rope Ladder", "Flexible ladder with distance constraints", "", createRopeLadder},
+            {CUSTOM_DOUBLE_PENDULUM, "Double Pendulum", "Custom pendulum setup with distance joints", "", createCustomScenario},
+            {CUSTOM_SPHERICAL_JOINT, "Spherical Joint Test", "Spheres connected by a spherical joint", "", createCustomScenario2},
+            {CUSTOM_TWO_PRISMATICS, "Two Prismatics", "Sphere constrained between two prismatic joints", "", createCustomScenario3},
+            {CUSTOM_BOX_SPHERE_JOINT, "Box-Sphere Joint", "Box connected to a sphere with a spherical joint", "", createCustomScenario4},
+            {CUSTOM_THREE_PRISMATICS, "Three-Axis Constraint", "Sphere constrained along three axes", "",
+                [](RigidBodySystem& system) { createCustomScenario5(system, 0.0f, 7.0f, 0.0f); }
+            },
+            {CUSTOM_HINGE_JOINT, "Hinge Joint Test", "Box connected with a hinge joint", "", createCustomScenario6},
+            {CUSTOM_TENSILE_TABLE, "Tensile Table", "Tensile structure with platforms and cables", "", createCustomScenario7},
+            {CUSTOM_HOLLOW_BOX, "Hollow Box & Spheres", "Multiple spheres inside a hollow box framework", "", createCustomScenario8},
+            {CUSTOM_BOX_WITH_FACES, "Box with Faces", "Box with rendered faces containing multiple spheres", "", createCustomScenario9}
+        };
+    }
+
+    /**
+     * @brief Create a scenario by ID
+     * @param system RigidBodySystem to populate
+     * @param id ID of the scenario to create
+     * @return true if successful, false otherwise
+     */
+    static bool createScenario(RigidBodySystem& system, ScenarioID id) {
+        for (const auto& scenario : getAvailableScenarios()) {
+            if (scenario.id == id) {
+                scenario.createFunction(system);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @brief Get scenario info by ID
+     * @param id ID of the scenario
+     * @return ScenarioInfo for the requested scenario, or default if not found
+     */
+    static ScenarioInfo getScenarioInfo(ScenarioID id) {
+        for (const auto& scenario : getAvailableScenarios()) {
+            if (scenario.id == id) {
+                return scenario;
+            }
+        }
+        return {MARBLE_BOX, "Unknown", "Unknown scenario", "", createMarbleBox};
+    }
+
+
     // Box filled with balls.
     //
     static void createMarbleBox(RigidBodySystem &rigidBodySystem)
@@ -43,6 +150,7 @@ public:
             for (int j = 0; j < 9; ++j)
             {
                 RigidBody* body1 = new RigidBody(1.0f, new Sphere(radius), createSphere(radius));
+                body1->id = bodyId;
                 body1->x = {-4.0f + (float)i * 1.0f, 2.0f, -4.0f + (float)j * 1.0f};
                 body1->xdot = Eigen::Vector3f::Random();
                 bodyMap[bodyId++] = body1;
@@ -51,6 +159,7 @@ public:
                 body1->mesh->setTransparency(0.6f);
 
                 RigidBody* body2 = new RigidBody(1.0f, new Sphere(radius), createSphere(radius));
+                body2->id = bodyId;
                 body2->x = {-4.0f + (float)i * 1.0f, 3.0f, -4.0f + (float)j * 1.0f};
                 body2->xdot = Eigen::Vector3f::Random();
                 bodyMap[bodyId++] = body2;
@@ -71,10 +180,15 @@ public:
         int boxId4 = bodyId++;
 
         RigidBody* body0 = new RigidBody(1.0f, new Box(sideDim), createBox(sideDim));
+        body0->id = boxId0;
         RigidBody* body1 = new RigidBody(1.0f, new Box(sideDim), createBox(sideDim));
+        body1->id = boxId1;
         RigidBody* body2 = new RigidBody(1.0f, new Box(sideDim), createBox(sideDim));
+        body2->id = boxId2;
         RigidBody* body3 = new RigidBody(1.0f, new Box(sideDim), createBox(sideDim));
+        body3->id = boxId3;
         RigidBody* body4 = new RigidBody(1.0f, new Box(botDim), createBox(botDim));
+        body4->id = boxId4;
 
         bodyMap[boxId0] = body0;
         bodyMap[boxId1] = body1;
@@ -135,6 +249,9 @@ public:
         int sphereId = 0;
         int boxId = 1;
 
+        bodySphere->id = sphereId;
+        bodyBox->id = boxId;
+
         bodyMap[sphereId] = bodySphere;
         bodyMap[boxId] = bodyBox;
 
@@ -166,6 +283,7 @@ public:
         topBox->fixed = true;
 
         int topBoxId = 0;
+        topBox->id = topBoxId;
         bodyMap[topBoxId] = topBox;
         rigidBodySystem.addBody(topBox);
 
@@ -182,6 +300,7 @@ public:
             nextBox->x = parent->x - dx;
 
             int nextBoxId = i + 1;
+            nextBox->id = nextBoxId;
             bodyMap[nextBoxId] = nextBox;
 
             // Add a hinge between parent->nextBox
@@ -224,6 +343,9 @@ public:
         // Assign IDs
         int cylId = 0;
         int planeId = 1;
+
+        cyl->id = cylId;
+        plane->id = planeId;
 
         bodyMap[cylId] = cyl;
         bodyMap[planeId] = plane;
@@ -272,6 +394,13 @@ public:
         int lrwheelId = 3;
         int rrwheelId = 4;
         int planeId = 5;
+
+        chassis->id = chassisId;
+        lfwheel->id = lfwheelId;
+        rfwheel->id = rfwheelId;
+        lrwheel->id = lrwheelId;
+        rrwheel->id = rrwheelId;
+        plane->id = planeId;
 
         // Store the ID-to-body mapping for joint creation
         std::map<int, RigidBody*> bodyMap;
@@ -338,6 +467,7 @@ public:
 
         // Create a box that will act as the ground.
         RigidBody* bodyBox = new RigidBody(1.0f, new Box(Eigen::Vector3f(10.0f, 1.0f, 10.0f)), createBox(Eigen::Vector3f(10, 1.0f, 10)));
+        bodyBox->id = bodyId;
         bodyBox->fixed = true;
         bodyBox->mesh->setSurfaceColor({0.2f, 0.2f, 0.2f})->setSmoothShade(false)->setTransparency(0.4f);
         bodyBox->mesh->setEdgeWidth(0.0f);
@@ -349,6 +479,7 @@ public:
         for (int i = 1; i <= N; i++)
         {
             RigidBody* body1 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+            body1->id = bodyId;
             body1->x = {-4.0f, 1.5f * i - 0.5f, -4.0f};
             bodyMap[bodyId++] = body1;
             rigidBodySystem.addBody(body1);
@@ -357,6 +488,7 @@ public:
             body1->mesh->setSmoothShade(true);
 
             RigidBody* body2 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+            body2->id = bodyId;
             body2->x = {4.0f, 1.5f * i - 0.5f, -4.0f};
             bodyMap[bodyId++] = body2;
             rigidBodySystem.addBody(body2);
@@ -365,6 +497,7 @@ public:
             body2->mesh->setSmoothShade(true);
 
             RigidBody* body3 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+            body3->id = bodyId;
             body3->x = {-4.0f, 1.5f * i - 0.5f, 4.0f};
             bodyMap[bodyId++] = body3;
             rigidBodySystem.addBody(body3);
@@ -373,6 +506,7 @@ public:
             body3->mesh->setSmoothShade(true);
 
             RigidBody* body4 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+            body4->id = bodyId;
             body4->x = {4.0f, 1.5f * i - 0.5f, 4.0f};
             bodyMap[bodyId++] = body4;
             rigidBodySystem.addBody(body4);
@@ -383,6 +517,7 @@ public:
             if (i < N)
             {
                 RigidBody* body5 = new RigidBody(1.0f, new Box(Eigen::Vector3f(10.0f, 0.5f, 10.0f)), createBox(Eigen::Vector3f(10, 0.5f, 10)));
+                body5->id = bodyId;
                 body5->x = {0, 1.5f * i + 0.25f, 0};
                 bodyMap[bodyId++] = body5;
                 rigidBodySystem.addBody(body5);
@@ -392,6 +527,7 @@ public:
         }
 
         RigidBody* topBox = new RigidBody(20000.0f, new Box(Eigen::Vector3f(15.0f, 1.0f, 15.0f)), createBox(Eigen::Vector3f(15.0f, 1.0f, 15.0f)));
+        topBox->id = bodyId;
         topBox->x = {0, 1.5f * N + 0.5f, 0};
         bodyMap[bodyId++] = topBox;
         rigidBodySystem.addBody(topBox);
@@ -420,6 +556,7 @@ public:
         // Create a box.
         const Eigen::Vector3f dim({0.5f, 0.1f, 1.0f});
         RigidBody* firstBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        firstBox->id = bodyId;
         firstBox->x = {x, y, 0.0f};
         firstBox->fixed = true;
 
@@ -436,6 +573,7 @@ public:
             // Create the next box in the chain.
             x += dx;
             RigidBody* nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+            nextBox->id = bodyId;
             nextBox->x = {x, y, 0.0f};
             nextBox->mesh->setSurfaceColor({0.1f, 0.2f, 1.0f})->setEdgeWidth(0.0f);
 
@@ -462,6 +600,7 @@ public:
         // Create a sphere.
         const float radius = 0.5f;
         RigidBody* bodySphere = new RigidBody(1000.0f, new Sphere(radius), createSphere(radius));
+        bodySphere->id = bodyId;
         bodySphere->x = {x0, y + 1.0f, 0.0f};
         bodySphere->omega = {0.0f, 0.0f, -5.0f};
         bodySphere->xdot = {1.0f, 0.0f, 0.0f};
@@ -485,10 +624,12 @@ public:
         int bodyId = 0;
 
         RigidBody* sphere1 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        sphere1->id = bodyId;
         sphere1->x = {0.0f, 4.0f, 0.0f};
         sphere1->fixed = true;
 
         RigidBody* sphere2 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        sphere2->id = bodyId+1;
         sphere2->x = {-2.0f, 4.0f, 0.0f};
 
         int sphere1Id = bodyId++;
@@ -517,11 +658,13 @@ public:
 
         const Eigen::Vector3f dim(2.0f, 2.0f, 2.0f);
         RigidBody* box = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        box->id = bodyId;
         box->x = {0.0f, 2.0f, 0.0f};
         box->fixed = true;
         box->mesh->setTransparency(0.4f);
 
         RigidBody* sphere = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        sphere->id = bodyId+1;
         sphere->x = {0.0f, 2.5f, 0.0f};
         sphere->mesh->setTransparency(0.6f);
 
@@ -548,12 +691,14 @@ public:
 
         const Eigen::Vector3f dim(1.0f, 1.0f, 1.0f);
         RigidBody* bodyBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        bodyBox->id = bodyId;
         bodyBox->x = {-1.0f, 2.0f, 0.0f};
         bodyBox->q = Eigen::AngleAxisf(-0.5236, Eigen::Vector3f(0, 0, 1));
 
         const Eigen::Vector3f n({0.5f, 0.866f, 0.0f});
         const Eigen::Vector3f p({0.0f, 0.0f, 0.0f});
         RigidBody* plane = new RigidBody(1.0f, new Plane(p, n), createPlane(p, n));
+        plane->id = bodyId+1;
         plane->fixed = true;
 
         int boxId = bodyId++;
@@ -581,11 +726,13 @@ public:
         int bodyId = 0;
 
         RigidBody* bodySphere = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        bodySphere->id = bodyId;
         bodySphere->x = {0.0f, 4.0f, 0.0f};
         bodySphere->omega = {0.0f, 0.0f, 1.0f};
         bodySphere->mesh->setTransparency(0.8f);
 
         RigidBody* bodyCyl = new RigidBody(1.0f, new Cylinder(2.0f, 0.5f), createCylinder(16, 0.5f, 2.0f));
+        bodyCyl->id = bodyId+1;
         bodyCyl->x = {0.0f, 1.0f, 0.0f};
         bodyCyl->q = Eigen::Quaternionf(aa);
         bodyCyl->fixed = true;
@@ -619,6 +766,7 @@ public:
         const float dy = 0.8f;
 
         RigidBody* topBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        topBox->id = bodyId;
         topBox->x = {0.0f, dy * (float)N, 0.0f};
         topBox->fixed = true;
 
@@ -632,6 +780,7 @@ public:
         for (int i = 0; i < N - 1; ++i)
         {
             RigidBody* nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+            nextBox->id = bodyId;
             nextBox->x = parent->x - Eigen::Vector3f(0.0f, dy, 0.0f);
 
             int nextBoxId = bodyId++;
@@ -660,8 +809,11 @@ public:
         int bodyId = 0;
 
         RigidBody* body1 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        body1->id = bodyId;
         RigidBody* body2 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        body2->id = bodyId+1;
         RigidBody* body3 = new RigidBody(1.0f, new Box(Eigen::Vector3f(0.5f, 0.5f, 0.5f)), createBox(Eigen::Vector3f(0.5f, 0.5f, 0.5f)));
+        body3->id = bodyId+2;
 
         body1->x = {0.0f, 6.0f, 0.0f};
         body2->x = {2.0f, 6.0f, 0.0f};
@@ -693,6 +845,7 @@ public:
         body1->fixed = true;
 
         RigidBody* body0 = new RigidBody(1.0f, new Box(Eigen::Vector3f(10.0f, -1.0f, 10.0f)), createBox(Eigen::Vector3f(10.0f, 0.4f, 10.0f)));
+        body0->id = bodyId;
         body0->fixed = true;
 
         int body0Id = bodyId++;
@@ -714,7 +867,9 @@ public:
         int bodyId = 0;
 
         RigidBody* sphere1 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        sphere1->id = bodyId;
         RigidBody* sphere2 = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        sphere2->id = bodyId+1;
 
         sphere1->x = {1.0f, 6.0f, 0.0f};
         sphere2->xdot = {0.0f, 0.0f, 5.0f};
@@ -740,6 +895,7 @@ public:
         sphere2->mesh->setTransparency(0.6f);
 
         RigidBody* body0 = new RigidBody(1.0f, new Box(Eigen::Vector3f(10.0f, -1.0f, 10.0f)), createBox(Eigen::Vector3f(10.0f, 0.4f, 10.0f)));
+        body0->id = bodyId;
         body0->fixed = true;
 
         int body0Id = bodyId++;
@@ -750,6 +906,7 @@ public:
 
         // ground
         RigidBody* ground = new RigidBody(1.0f, new Plane({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}), createPlane({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}));
+        ground->id = bodyId;
         ground->x = {0.0f, -1.0f, 0.0f};
         ground->fixed = true;
 
@@ -781,18 +938,21 @@ public:
 
         // Create the first vertical prismatic
         RigidBody* prismatic1 = new RigidBody(1.0f, new Box(prismaticDim), createBox(prismaticDim));
+        prismatic1->id = bodyId;
         prismatic1->x = prismatic1Position;
         prismatic1->fixed = true;
         prismatic1->mesh->setSurfaceColor({0.6f, 0.6f, 0.6f})->setSmoothShade(false)->setTransparency(0.4f);
 
         // Create the second vertical prismatic
         RigidBody* prismatic2 = new RigidBody(1.0f, new Box(prismaticDim), createBox(prismaticDim));
+        prismatic2->id = bodyId+1;
         prismatic2->x = prismatic2Position;
         prismatic2->fixed = true;
         prismatic2->mesh->setSurfaceColor({0.6f, 0.6f, 0.6f})->setSmoothShade(false)->setTransparency(0.4f);
 
         // Create the sphere
         RigidBody* sphere = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        sphere->id = bodyId+2;
         sphere->x = spherePosition;
         sphere->mesh->setSurfaceColor({1.0f, 5.f, 0.1f})->setTransparency(0.6f);
 
@@ -834,10 +994,12 @@ public:
 
         // Create the first box
         RigidBody* box1 = new RigidBody(1.0f, new Box(boxDim1), createBox(boxDim1));
+        box1->id = bodyId;
         box1->x = {0.0f, 5.0f, 0.0f};
 
         // Create the second box
         RigidBody* sphere = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        sphere->id = bodyId+1;
         sphere->x = {0.0f, 3.0f, 0.0f};
         sphere->fixed = true;
 
@@ -883,24 +1045,28 @@ public:
 
         // Create the first vertical prismatic along x-axis
         RigidBody* prismatic1 = new RigidBody(1.0f, new Box(prismaticDimX), createBox(prismaticDimX));
+        prismatic1->id = bodyId;
         prismatic1->x = prismatic1Position;
         prismatic1->fixed = true;
         prismatic1->mesh->setSurfaceColor({0.6f, 0.6f, 0.6f})->setSmoothShade(false)->setTransparency(0.4f);
 
         // Create the second vertical prismatic along y-axis
         RigidBody* prismatic2 = new RigidBody(1.0f, new Box(prismaticDimY), createBox(prismaticDimY));
+        prismatic2->id = bodyId+1;
         prismatic2->x = prismatic2Position;
         prismatic2->fixed = true;
         prismatic2->mesh->setSurfaceColor({0.6f, 0.6f, 0.6f})->setSmoothShade(false)->setTransparency(0.4f);
 
         // Create the third vertical prismatic along z-axis
         RigidBody* prismatic3 = new RigidBody(1.0f, new Box(prismaticDimZ), createBox(prismaticDimZ));
+        prismatic3->id = bodyId+2;
         prismatic3->x = prismatic3Position;
         prismatic3->fixed = true;
         prismatic3->mesh->setSurfaceColor({0.6f, 0.6f, 0.6f})->setSmoothShade(false)->setTransparency(0.4f);
 
         // Create the sphere
         RigidBody* sphere = new RigidBody(1.0f, new Sphere(sphereRadius), createSphere(sphereRadius));
+        sphere->id = bodyId+3;
         sphere->x = spherePosition;
         sphere->mesh->setSurfaceColor({1.0f, 0.1f, 0.1f})->setTransparency(0.6f);
 
@@ -950,10 +1116,12 @@ public:
 
         // Create the first box
         RigidBody* box1 = new RigidBody(1.0f, new Box(boxDim1), createBox(boxDim1));
+        box1->id = bodyId;
         box1->x = {0.0f, 5.0f, 0.0f};
 
         // Create the second box
         RigidBody* sph = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        sph->id = bodyId+1;
         sph->x = {0.0f, 3.0f, 0.0f};
         sph->fixed = true;
 
@@ -992,11 +1160,13 @@ public:
 
         // Create top platform
         RigidBody* topPlatform = new RigidBody(10.0f, new Box(platformDim), createBox(platformDim));
+        topPlatform->id = bodyId;
         topPlatform->x = {0.0f, 2.0f, 0.0f};
         topPlatform->mesh->setSurfaceColor({0.8f, 0.8f, 0.8f});
 
         // Create bottom platform
         RigidBody* bottomPlatform = new RigidBody(10.0f, new Box(platformDim), createBox(platformDim));
+        bottomPlatform->id = bodyId+1;
         bottomPlatform->x = {0.0f, -2.0f, 0.0f};
         bottomPlatform->mesh->setSurfaceColor({0.5f, 0.5f, 0.5f});
 
@@ -1021,6 +1191,7 @@ public:
         for (int i = 0; i < 4; ++i)
         {
             RigidBody* strut = new RigidBody(5.0f, new Box(strutDim), createBox(strutDim));
+            strut->id = bodyId;
             strut->x = strutPositions[i];
             strut->fixed = true;
             strut->mesh->setSurfaceColor({0.6f, 0.3f, 0.3f});
@@ -1101,6 +1272,7 @@ public:
         for (const auto &vertex : vertices)
         {
             RigidBody* vertexBody = new RigidBody(1.0f, new Sphere(0.2f), createSphere(0.2f));
+            vertexBody->id = bodyId;
             vertexBody->x = vertex;
             vertexBody->fixed = true;
             vertexBody->mesh->setSurfaceColor({0.6f, 0.6f, 0.6f})->setTransparency(0.6f);
@@ -1133,6 +1305,7 @@ public:
         for (int i = 0; i < numSpheres; ++i)
         {
             RigidBody* sphere = new RigidBody(1.0f, new Sphere(sphereRadius), createSphere(sphereRadius));
+            sphere->id = bodyId;
             sphere->x = boxCenter + Eigen::Vector3f(
                                         static_cast<float>(rand()) / RAND_MAX * boxDim.x() - boxDim.x() / 2,
                                         static_cast<float>(rand()) / RAND_MAX * boxDim.y() - boxDim.y() / 2,
@@ -1191,6 +1364,7 @@ public:
         for (const auto& vertex : vertices)
         {
             RigidBody* vertexBody = new RigidBody(1.0f, new Box(Eigen::Vector3f(0.2f, 0.2f, 0.2f)), createBox(Eigen::Vector3f(0.2f, 0.2f, 0.2f)));
+            vertexBody->id = bodyId;
             vertexBody->x = vertex;
             vertexBody->fixed = true;
             vertexBody->mesh->setSurfaceColor({ 0.6f, 0.6f, 0.6f })->setTransparency(0.6f);
@@ -1214,6 +1388,7 @@ public:
             Eigen::Vector3f edgeDim = (endPos - startPos).cwiseAbs() + Eigen::Vector3f(0.2f, 0.2f, 0.2f); // Add some thickness
 
             RigidBody* edgeBody = new RigidBody(1.0f, new Box(edgeDim), createBox(edgeDim));
+            edgeBody->id = bodyId;
             edgeBody->x = edgeCenter;
             edgeBody->fixed = true;
             edgeBody->mesh->setSurfaceColor({ 0.3f, 0.3f, 0.3f })->setTransparency(0.6f);
@@ -1239,6 +1414,7 @@ public:
             Eigen::Vector3f faceDim = (v1 - v0).cwiseAbs() + (v3 - v0).cwiseAbs() + Eigen::Vector3f(0.2f, 0.2f, 0.2f); // Add some thickness
 
             RigidBody* faceBody = new RigidBody(1.0f, new Box(faceDim), createBox(faceDim));
+            faceBody->id = bodyId;
             faceBody->x = faceCenter;
             faceBody->fixed = true;
             faceBody->mesh->setSurfaceColor({ 0.1f, 0.1f, 0.1f })->setTransparency(0.6f);
@@ -1258,6 +1434,7 @@ public:
         for (int i = 0; i < numSpheres; ++i)
         {
             RigidBody* sphere = new RigidBody(1.0f, new Sphere(sphereRadius), createSphere(sphereRadius));
+            sphere->id = bodyId;
             sphere->x = boxCenter + Eigen::Vector3f(
                 static_cast<float>(rand()) / RAND_MAX * boxDim.x() - boxDim.x() / 2,
                 static_cast<float>(rand()) / RAND_MAX * boxDim.y() - boxDim.y() / 2,

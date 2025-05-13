@@ -32,7 +32,6 @@ jobs:
             generator: "Visual Studio 17 2022"
 
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
       # Only set CC/CXX for non-Windows platforms
       CC: ${{ contains(matrix.os, 'windows') && '' || matrix.cc }}
       CXX: ${{ contains(matrix.os, 'windows') && '' || matrix.cxx }}
@@ -79,14 +78,6 @@ jobs:
           path: libtorch
           key: ${{ runner.os }}-libtorch-2.0.1-${{ matrix.build_type }}
 
-      - name: Cache vcpkg
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.VCPKG_ROOT }}
-          key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/vcpkg.json') }}
-          restore-keys: |
-            ${{ runner.os }}-vcpkg-
-
       - name: Install system dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -99,14 +90,8 @@ jobs:
         run: |
           brew update && brew install opencv@4 eigen glm
 
-      - name: Bootstrap vcpkg (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          git clone https://github.com/microsoft/vcpkg ${{ env.VCPKG_ROOT }}
-          cd ${{ env.VCPKG_ROOT }}
-          ./bootstrap-vcpkg.bat
-          ./vcpkg install glm eigen3
-        shell: cmd
+      # Note: For Windows, you may need to find alternative ways to install dependencies
+      # that were previously installed via vcpkg (glm, eigen3)
 
       # Use different configure commands for Windows vs. Linux/macOS
       - name: Configure CMake (Windows)
@@ -119,8 +104,7 @@ jobs:
             -DUSE_OPENCV=OFF ^
             -DUSE_TORCH=OFF ^
             -DUSE_PYBIND=OFF ^
-            -DUSE_CCACHE=OFF ^
-            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake
+            -DUSE_CCACHE=OFF
         shell: cmd
 
       - name: Configure CMake (Linux/macOS)
@@ -133,8 +117,7 @@ jobs:
             -DUSE_OPENCV=OFF \
             -DUSE_TORCH=OFF \
             -DUSE_PYBIND=OFF \
-            -DUSE_CCACHE=ON \
-            ${VCPKG_ROOT:+-DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake}
+            -DUSE_CCACHE=ON
         shell: bash
 
       # Build commands are different for Windows vs. Linux/macOS

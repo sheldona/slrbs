@@ -164,14 +164,24 @@ namespace
 }
 
 SimViewer::SimViewer()
-
-: m_adaptiveTimesteps(false),
-   m_gsDamping(false),
-   m_alpha(0.01f),m_dt(0.01667f), m_subSteps(1), m_dynamicsTime(0.0f), m_frameCounter(0), m_kineticEnergy(0.0f), m_constraintErr(0.0f),
-   m_paused(true), m_stepOnce(false),
-   m_enableCollisions(true), m_enableScreenshots(false),
-   m_drawContacts(true), m_drawConstraints(true),
-   m_selectedScenario(-1), m_selectedBodyIndex(-1), m_showContactHits(true)
+    : m_adaptiveTimesteps(false),
+      m_gsDamping(false),
+      m_alpha(0.01f),
+      m_dt(0.01667f),
+      m_subSteps(1),
+      m_dynamicsTime(0.0f),
+      m_frameCounter(0),
+      m_kineticEnergy(0.0f),
+      m_constraintErr(0.0f),
+      m_paused(true),
+      m_stepOnce(false),
+      m_enableCollisions(true),
+      m_enableScreenshots(false),
+      m_drawContacts(true),
+      m_drawConstraints(true),
+      m_selectedScenario(-1),
+      m_selectedBodyIndex(-1),
+      m_showContactHits(true)
 {
     m_resetState = make_unique<RigidBodySystemState>(*m_rigidBodySystem);
     refreshScenariosList();
@@ -234,8 +244,6 @@ void SimViewer::start()
     [this](RigidBodySystem& system, float h) {
         this->preStep(system, h);
     });
-
-
 
     polyscope::show();
 }
@@ -394,6 +402,7 @@ void SimViewer::drawGUI()
     ImGui::End();
 
     // Scenarios
+    ImGui::Begin("Scenarios", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     if (ImGui::CollapsingHeader("Built-in Scenarios", ImGuiTreeNodeFlags_DefaultOpen))
     {
         // First row
@@ -427,7 +436,7 @@ void SimViewer::drawGUI()
         if (ImGui::Button("Rope Ladder",   ImVec2(150,0)))    createRopeLadder();
     }
 
-    // Also add a new collapsing header for custom scenarios
+    // Custom scenarios
     if (ImGui::CollapsingHeader("Custom Scenarios"))
     {
         // First row
@@ -453,6 +462,9 @@ void SimViewer::drawGUI()
         // Fifth row
         if (ImGui::Button("Box with Faces", ImVec2(150,0)))   createCustomScenario9();
     }
+
+    // JSON Scenarios section
+    drawScenarioSelectionGUI();
     ImGui::End();
 
     // Scene Hierarchy
@@ -605,8 +617,6 @@ void SimViewer::drawGUI()
                 if (ImGui::SliderFloat("Ground Plane Height", &h, -2.0f, 2.0f)) {
                     gph = polyscope::ScaledValue<float>::absolute(h);
                 }
-
-
             }
 
             // Rendering options
@@ -625,9 +635,6 @@ void SimViewer::drawGUI()
             ImGui::SameLine();
             if (ImGui::Button("Front View"))
                 polyscope::view::lookAt({0,0,10},{0,0,0},false);
-
-            // Note: axisEnabled, shadowsEnabled, transparencyMode, resetCameraToDefault()
-            //       were removed in the latest Polyscope API.
         }
     }
     ImGui::End();
@@ -738,7 +745,7 @@ void SimViewer::draw() {
     m_dynamicsTime = chrono::duration<float, milli>(t1 - t0).count();
     if (m_enableScreenshots) polyscope::screenshot(false);
 
-        // 5) Update diagnostics
+    // 5) Update diagnostics
     m_kineticEnergy = computeKineticEnergy(*m_rigidBodySystem);
     m_constraintErr = 0.0f;
     for (auto* j : m_rigidBodySystem->getJoints()) {
@@ -1085,7 +1092,6 @@ void SimViewer::preStep(RigidBodySystem& system, float h) {
 
 void SimViewer::drawColorDebugUI()
 {
-
     if (ImGui::Button("Reset to Default"))
     {
         g_visualProperties.clear();
