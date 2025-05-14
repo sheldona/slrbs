@@ -1,5 +1,6 @@
 #pragma once
-#include "Integrator.h"
+#include "integrator/Integrator.h"
+#include "rigidbody/RigidBodySystem.h"
 
 class Verlet : public Integrator {
 public:

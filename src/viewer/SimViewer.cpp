@@ -190,9 +190,17 @@ SimViewer::SimViewer()
       m_drawConstraints(true),
       m_selectedScenario(-1),
       m_selectedBodyIndex(-1),
-      m_showContactHits(true)
+      m_showContactHits(true),
+      m_showContactTangents(true),
+      m_enableOpenMP(true),
+      m_enableSolverOpenMP(true)  // Initialize the new member variable
 {
     m_resetState = make_unique<RigidBodySystemState>(*m_rigidBodySystem);
+
+    // Apply OpenMP settings
+    m_rigidBodySystem->setUseOpenMP(m_enableOpenMP);
+    m_rigidBodySystem->setUseSolverOpenMP(m_enableSolverOpenMP);
+
     refreshScenariosList();
     reset();
     FaceContactTracker::initialize();
@@ -336,6 +344,24 @@ void SimViewer::drawGUI()
         ImGui::Checkbox("GS damping", &m_gsDamping);
         ImGui::Checkbox("Show contact hits", &m_showContactHits);
         FaceContactTracker::setVisualizationEnabled(m_showContactHits);
+        ImGui::Checkbox("Show contact tangents", &m_showContactTangents);
+        FaceContactTracker::setTangentVisualizationEnabled(m_showContactTangents);
+        ImGui::Separator();
+        ImGui::Text("Parallelization:");
+        if (ImGui::Button(m_enableOpenMP ? "Integrator OpenMP: ON" : "Integrator OpenMP: OFF", ImVec2(200,0))) {
+            m_enableOpenMP = !m_enableOpenMP;
+            // Apply setting to the integrator
+            m_rigidBodySystem->setUseOpenMP(m_enableOpenMP);
+        }
+
+        if (ImGui::Button(m_enableSolverOpenMP ? "Solver OpenMP: ON" : "Solver OpenMP: OFF", ImVec2(200,0))) {
+            m_enableSolverOpenMP = !m_enableSolverOpenMP;
+            // Apply setting to the solver
+            m_rigidBodySystem->setUseSolverOpenMP(m_enableSolverOpenMP);
+        }
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Toggle parallel processing for constraint solvers");
     }
     ImGui::Separator();
     ImGui::Text("Geometry Visualization");
@@ -1075,6 +1101,10 @@ void SimViewer::createCustomScenario9()
 }
 
 void SimViewer::preStep(RigidBodySystem& system, float h) {
+
+    system.setUseOpenMP(m_enableOpenMP);
+    system.setUseSolverOpenMP(m_enableSolverOpenMP);
+
     auto& bodies   = system.getBodies();
     auto& joints   = system.getJoints();
     auto& contacts = system.getContacts();

@@ -98,6 +98,7 @@ private:
     float m_kineticEnergy;              // System kinetic energy
     float m_constraintErr;              // Total constraint error
     bool m_showContactHits = true;
+    bool m_showContactTangents = true;  // Added missing variable for tangent visualization
 
     // Toggle flags for visualization
     bool m_showMeshBVH   = false;
@@ -109,4 +110,6 @@ private:
 
     bool m_showAllBVHs  = false;
     bool m_showAllAABBs = false;
+    bool m_enableSolverOpenMP = true;
+    bool m_enableOpenMP = true;
 };

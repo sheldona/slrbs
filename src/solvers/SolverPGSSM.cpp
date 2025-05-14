@@ -203,7 +203,7 @@ namespace
         A.resize(numContacts);
 
         #ifdef _OPENMP
-        #pragma omp parallel for
+        #pragma omp parallel for if(useOpenMP)
         #endif
         for (int i = 0; i < numContacts; ++i)
         {
@@ -237,7 +237,7 @@ namespace
         A.resize(numJoints);
 
         #ifdef _OPENMP
-        #pragma omp parallel for
+        #pragma omp parallel for if(useOpenMP)
         #endif
         for (int i = 0; i < numJoints; ++i)
         {
@@ -306,7 +306,7 @@ void SolverPGSSM::solveContacts(std::vector<Contact*>& contacts, int numContacts
 void SolverPGSSM::solveActiveJoints(std::vector<Joint*>& joints, const std::vector<int>& activeIndices)
 {
     #ifdef _OPENMP
-    #pragma omp parallel for
+    #pragma omp parallel for if(useOpenMP)
     #endif
     for (int idx = 0; idx < static_cast<int>(activeIndices.size()); ++idx)
     {
@@ -329,7 +329,7 @@ void SolverPGSSM::solveActiveJoints(std::vector<Joint*>& joints, const std::vect
 void SolverPGSSM::solveActiveContacts(std::vector<Contact*>& contacts, const std::vector<int>& activeIndices)
 {
     #ifdef _OPENMP
-    #pragma omp parallel for
+    #pragma omp parallel for if(useOpenMP)
     #endif
     for (int idx = 0; idx < static_cast<int>(activeIndices.size()); ++idx)
     {
@@ -421,7 +421,7 @@ void SolverPGSSM::solve(float h)
     
     // Compute RHS vectors for joints
     #ifdef _OPENMP
-    #pragma omp parallel for
+    #pragma omp parallel for if(useOpenMP)
     #endif
     for (int i = 0; i < numJoints; ++i) {
         Joint* j = joints[i];
@@ -433,7 +433,7 @@ void SolverPGSSM::solve(float h)
     
     // Compute RHS vectors for contacts
     #ifdef _OPENMP
-    #pragma omp parallel for
+    #pragma omp parallel for if(useOpenMP)
     #endif
     for (int i = 0; i < numContacts; ++i) {
         Contact* c = contacts[i];
