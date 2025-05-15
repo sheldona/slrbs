@@ -11,6 +11,7 @@
 void ImplicitEuler::integrate(RigidBodySystem& sys, float dt) {
     auto& bodies = sys.getBodies();
     bool useColor = sys.getUseGraphColoring();
+    bool useOpenMP = m_useOpenMP;
 
     // Get parameters from the system
     const float damping = sys.getImplicitDamping();
@@ -95,7 +96,7 @@ void ImplicitEuler::integrate(RigidBodySystem& sys, float dt) {
             }
         }
     } else {
-        #pragma omp parallel for if(bodies.size() > 16)
+        #pragma omp parallel for if(useOpenMP && bodies.size() > 16)
         for (size_t i = 0; i < bodies.size(); ++i) {
             RigidBody* b = bodies[i];
             if (!b->fixed) {

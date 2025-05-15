@@ -126,6 +126,27 @@ public:
 
     void setUseSolverOpenMP(bool enable) { m_useSolverOpenMP = enable; }
     bool getUseSolverOpenMP() const { return m_useSolverOpenMP; }
+    void setUseCollisionOpenMP(bool enable) { m_useCollisionOpenMP = enable; }
+    bool getUseCollisionOpenMP() const { return m_useCollisionOpenMP; }
+
+    // void setNewtonMaxIterations(int iters);
+    // void setNewtonTolerance(float tol);
+    // void setNewtonDamping(float damping);
+
+    // // For Proximal solver
+    // void setProximalAbsTolerance(float tol);
+    // void setProximalRelTolerance(float tol);
+    // Solver* getProximalSolver();
+    //
+    // // For conjugate gradient solvers
+    // void setConjTolerance(float tol);
+    // float getConjTolerance() const;
+    // void setConjRestartInterval(int interval);
+    // int getConjRestartInterval() const;
+
+    // void setMaxIterations(int iterations) { m_maxIterations = iterations; }
+    // void setTolerance(float tolerance) { m_tolerance = tolerance; }
+    // void setDamping(float damping) { m_damping = damping; }
 
 private:
     // Internal pipeline methods
@@ -162,4 +183,9 @@ private:
 
     bool m_useOpenMP = true;
     bool m_useSolverOpenMP = true;
+    bool m_useCollisionOpenMP = true;
+
+    int m_maxIterations = 10;
+    float m_tolerance = 1e-6f;
+    float m_damping = 0.5f;
 };

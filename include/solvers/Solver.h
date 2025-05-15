@@ -17,7 +17,7 @@ public:
     Solver(RigidBodySystem* _rigidBodySystem) : m_rigidBodySystem(_rigidBodySystem), m_maxIter(20) { }
 
     // Sets the maximum number of iterations for the solver method.
-    // 
+    //
     // The behavior will change based on the specific algorithm.
     // e.g., for PGS this changes the number of iterations
     //
@@ -28,7 +28,7 @@ public:
     int getMaterIter() const { return m_maxIter; }
 
     // The method that solves for the constraint forces in @a m_rigidBodySystem.
-    // 
+    //
     // Inputs:
     //    h - the simulation time step.
     // Output:
@@ -36,8 +36,12 @@ public:
     //
     virtual void solve(float h) = 0;
 
+    void setUseOpenMP(bool enable) { m_useOpenMP = enable; }
+    bool getUseOpenMP() const { return m_useOpenMP; }
+
 protected:
 
     RigidBodySystem* m_rigidBodySystem;
     int m_maxIter;
+    bool m_useOpenMP = true;
 };

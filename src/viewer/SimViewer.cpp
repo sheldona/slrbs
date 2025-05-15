@@ -27,9 +27,6 @@
 #include "collision/BVH.h"
 #include "collision/AABB.h"
 
-
-
-
 using namespace std;
 
 // Static variables and helper functions for visualization and UI
@@ -347,6 +344,33 @@ void SimViewer::drawGUI()
         ImGui::Checkbox("Show contact tangents", &m_showContactTangents);
         FaceContactTracker::setTangentVisualizationEnabled(m_showContactTangents);
         ImGui::Separator();
+        // ImGui::Text("Contact Logging");
+
+        // if (ImGui::Checkbox("Enable contact logging", &m_faceTrackerLogging)) {
+        //     // Call a method to enable logging in FaceContactTracker
+        //     // This would require adding this functionality to FaceContactTracker
+        //     FaceContactTracker::setLoggingEnabled(m_faceTrackerLogging);
+        // }
+
+        // if (m_faceTrackerLogging) {
+        //     char pathBuf[256];
+        //     strcpy(pathBuf, m_faceTrackerLogPath.c_str());
+        //     if (ImGui::InputText("Log Path", pathBuf, sizeof(pathBuf))) {
+        //         m_faceTrackerLogPath = pathBuf;
+        //         FaceContactTracker::setLogPath(m_faceTrackerLogPath);
+        //     }
+        //
+        //     // ImGui::Text("Log Options:");
+        //     //
+        //     // bool logHitCounts = FaceContactTracker::isLogOptionEnabled(FaceContactTracker::LogOption::HIT_COUNTS);
+        //     // if (ImGui::Checkbox("Hit Counts", &logHitCounts))
+        //     //     FaceContactTracker::setLogOptionEnabled(FaceContactTracker::LogOption::HIT_COUNTS, logHitCounts);
+        //     //
+        //     // bool logTangents = FaceContactTracker::isLogOptionEnabled(FaceContactTracker::LogOption::TANGENT_DIRECTIONS);
+        //     // if (ImGui::Checkbox("Tangent Directions", &logTangents))
+        //     //     FaceContactTracker::setLogOptionEnabled(FaceContactTracker::LogOption::TANGENT_DIRECTIONS, logTangents);
+        // }
+
         ImGui::Text("Parallelization:");
         if (ImGui::Button(m_enableOpenMP ? "Integrator OpenMP: ON" : "Integrator OpenMP: OFF", ImVec2(200,0))) {
             m_enableOpenMP = !m_enableOpenMP;
@@ -455,6 +479,96 @@ void SimViewer::drawGUI()
                 m_rigidBodySystem->setMaxAngularVelocity(mav);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Max angular speed clamp.");
         }
+
+
+        // if (m_rigidBodySystem->getIntegrationMethod() == IntegrationMethod::NEWTON) {
+        //     ImGui::Separator();
+        //     ImGui::Text("Newton Integrator Settings");
+        //
+        //     if (ImGui::SliderInt("Newton Max Iterations", &m_newtonMaxIter, 1, 20))
+        //         // Set the parameter in the Newton integrator
+        //             m_rigidBodySystem->setNewtonMaxIterations(m_newtonMaxIter);
+        //
+        //     if (ImGui::SliderFloat("Newton Tolerance", &m_newtonTolerance, 1e-10f, 1e-2f, "%.8f"))
+        //         m_rigidBodySystem->setNewtonTolerance(m_newtonTolerance);
+        //
+        //     if (ImGui::SliderFloat("Newton Damping", &m_newtonDamping, 0.0f, 1.0f, "%.3f"))
+        //         m_rigidBodySystem->setNewtonDamping(m_newtonDamping);
+        // }
+
+        // if (m_rigidBodySystem->getSolverType() == SolverType::PROXIMAL) {
+        //     ImGui::Separator();
+        //     ImGui::Text("Proximal Solver Settings");
+        //
+        //     if (ImGui::SliderFloat("Absolute Tolerance", &m_proximalAbsTol, 1e-10f, 1e-2f, "%.8f"))
+        //         m_rigidBodySystem->setProximalAbsTolerance(m_proximalAbsTol);
+        //
+        //     if (ImGui::SliderFloat("Relative Tolerance", &m_proximalRelTol, 1e-10f, 1e-2f, "%.8f"))
+        //         m_rigidBodySystem->setProximalRelTolerance(m_proximalRelTol);
+        //
+        //     if (ImGui::Checkbox("Enable Data Export", &m_proximalExportEnabled)) {
+        //         // Get the solver and set export enabled
+        //         SolverProximal* proxSolver = static_cast<SolverProximal*>(m_rigidBodySystem->getProximalSolver());
+        //         if (proxSolver) {
+        //             proxSolver->enableDataExport(m_proximalExportEnabled);
+        //         }
+        //     }
+        //
+        //     if (m_proximalExportEnabled) {
+        //         char pathBuf[256];
+        //         strcpy(pathBuf, m_proximalExportPath.c_str());
+        //         if (ImGui::InputText("Export Path", pathBuf, sizeof(pathBuf))) {
+        //             m_proximalExportPath = pathBuf;
+        //             SolverProximal* proxSolver = static_cast<SolverProximal*>(m_rigidBodySystem->getProximalSolver());
+        //             if (proxSolver) {
+        //                 proxSolver->setExportPath(m_proximalExportPath);
+        //             }
+        //         }
+        //
+        //         // Add checkboxes for individual log types
+        //         ImGui::Text("Log Types:");
+        //         SolverProximal* proxSolver = static_cast<SolverProximal*>(m_rigidBodySystem->getProximalSolver());
+        //         if (proxSolver) {
+        //             bool logMatrices = proxSolver->isLogEnabled(SolverProximal::LogType::MATRICES);
+        //             if (ImGui::Checkbox("Matrices", &logMatrices))
+        //                 proxSolver->setLogEnabled(SolverProximal::LogType::MATRICES, logMatrices);
+        //
+        //             bool logConstraints = proxSolver->isLogEnabled(SolverProximal::LogType::ACTIVE_CONSTRAINTS);
+        //             if (ImGui::Checkbox("Active Constraints", &logConstraints))
+        //                 proxSolver->setLogEnabled(SolverProximal::LogType::ACTIVE_CONSTRAINTS, logConstraints);
+        //
+        //             bool logResidual = proxSolver->isLogEnabled(SolverProximal::LogType::RESIDUAL);
+        //             if (ImGui::Checkbox("Residual", &logResidual))
+        //                 proxSolver->setLogEnabled(SolverProximal::LogType::RESIDUAL, logResidual);
+        //
+        //             bool logLcpError = proxSolver->isLogEnabled(SolverProximal::LogType::LCP_ERROR);
+        //             if (ImGui::Checkbox("LCP Error", &logLcpError))
+        //                 proxSolver->setLogEnabled(SolverProximal::LogType::LCP_ERROR, logLcpError);
+        //
+        //             bool logMatrixR = proxSolver->isLogEnabled(SolverProximal::LogType::MATRIX_R);
+        //             if (ImGui::Checkbox("Matrix R", &logMatrixR))
+        //                 proxSolver->setLogEnabled(SolverProximal::LogType::MATRIX_R, logMatrixR);
+        //
+        //             bool logPerformance = proxSolver->isLogEnabled(SolverProximal::LogType::PERFORMANCE);
+        //             if (ImGui::Checkbox("Performance", &logPerformance))
+        //                 proxSolver->setLogEnabled(SolverProximal::LogType::PERFORMANCE, logPerformance);
+        //         }
+        //     }
+        // }
+
+        // if (m_rigidBodySystem->getSolverType() == SolverType::CONJ_GRADIENT ||
+        //     m_rigidBodySystem->getSolverType() == SolverType::CONJ_RESIDUAL) {
+        //         ImGui::Separator();
+        //         ImGui::Text("Conjugate Method Settings");
+        //
+        //         float tolerance = m_rigidBodySystem->getConjTolerance();
+        //         if (ImGui::SliderFloat("Convergence Tolerance", &tolerance, 1e-10f, 1e-2f, "%.8f"))
+        //             m_rigidBodySystem->setConjTolerance(tolerance);
+        //
+        //         int restartInterval = m_rigidBodySystem->getConjRestartInterval();
+        //         if (ImGui::SliderInt("Restart Interval", &restartInterval, 0, 50))
+        //             m_rigidBodySystem->setConjRestartInterval(restartInterval);
+        // }
 
         ImGui::Separator();
         ImGui::Text("Solver Type:");
@@ -1174,6 +1288,7 @@ void SimViewer::drawColorDebugUI()
         updateRigidBodyMeshes(*m_rigidBodySystem);
     }
 }
+
 void SimViewer::showAllMeshBVHs() {
   auto& bodies = m_rigidBodySystem->getBodies();
   for (auto* b : bodies) {

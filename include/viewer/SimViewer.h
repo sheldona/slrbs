@@ -112,4 +112,18 @@ private:
     bool m_showAllAABBs = false;
     bool m_enableSolverOpenMP = true;
     bool m_enableOpenMP = true;
+
+    int m_newtonMaxIter = 5;
+    float m_newtonTolerance = 1e-6f;
+    float m_newtonDamping = 0.98f;
+
+    // Proximal solver parameters
+    float m_proximalAbsTol = 1e-5f;
+    float m_proximalRelTol = 1e-5f;
+    bool m_proximalExportEnabled = false;
+    std::string m_proximalExportPath = "proximal_data";
+
+    // FaceTracker logging
+    bool m_faceTrackerLogging = false;
+    std::string m_faceTrackerLogPath = "contact_logs";
 };

@@ -11,6 +11,7 @@
 void Newton::integrate(RigidBodySystem& sys, float dt) {
     auto& bodies = sys.getBodies();
     bool useColor = sys.getUseGraphColoring();
+    bool useOpenMP = m_useOpenMP;
 
     // Newton method parameters
     const int maxNewtonIter = 5;               // Maximum Newton iterations

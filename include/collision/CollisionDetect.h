@@ -8,8 +8,7 @@ class Contact;
 class RigidBody;
 class RigidBodySystem;
 
-class CollisionDetect
-{
+class CollisionDetect {
 public:
     CollisionDetect(RigidBodySystem* rigidBodySystem);
 
@@ -25,6 +24,9 @@ public:
     // Access the list of detected contacts
     const std::vector<Contact*>& getContacts() const { return m_contacts; }
     std::vector<Contact*>& getContacts() { return m_contacts; }
+
+    void setUseOpenMP(bool enable) { m_useOpenMP = enable; }
+    bool getUseOpenMP() const { return m_useOpenMP; }
 
 private:
     // Helper method to find the closest face to a contact point
@@ -43,4 +45,7 @@ private:
 
     // List of detected contacts
     std::vector<Contact*> m_contacts;
+
+    // OpenMP control flag
+    bool m_useOpenMP = false;
 };

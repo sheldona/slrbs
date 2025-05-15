@@ -197,7 +197,8 @@ namespace
 
     // Build diagonal matrices for contacts
     static void buildContactMatrices(std::vector<Contact*>& contacts, 
-                                   std::vector<Eigen::Matrix3f>& A)
+                                   std::vector<Eigen::Matrix3f>& A,
+                                   bool useOpenMP)
     {
         const int numContacts = contacts.size();
         A.resize(numContacts);
@@ -209,7 +210,7 @@ namespace
         {
             Contact* c = contacts[i];
             Eigen::Matrix3f diag = Eigen::Matrix3f::Zero();
-            
+
             // Add contributions from both bodies
             if (!c->body0->fixed)
             {
@@ -219,19 +220,20 @@ namespace
             {
                 diag += c->J1Minv * c->J1.transpose();
             }
-            
+
             // Add small regularization for stability
             diag(0, 0) += 1e-6f;
             diag(1, 1) += 1e-6f;
             diag(2, 2) += 1e-6f;
-            
+
             A[i] = diag;
         }
     }
-    
+
     // Build diagonal matrices for joints
-    static void buildJointMatrices(std::vector<Joint*>& joints, 
-                                 std::vector<Eigen::MatrixXf>& A)
+    static void buildJointMatrices(std::vector<Joint*>& joints,
+                                 std::vector<Eigen::MatrixXf>& A,
+                                 bool useOpenMP)
     {
         const int numJoints = joints.size();
         A.resize(numJoints);
@@ -243,10 +245,10 @@ namespace
         {
             Joint* j = joints[i];
             const int dim = j->lambda.rows();
-            
+
             // Initialize with small regularization
             Eigen::MatrixXf diag = 1e-6f * Eigen::MatrixXf::Identity(dim, dim);
-            
+
             // Add contributions from both bodies
             if (!j->body0->fixed)
             {
@@ -256,7 +258,7 @@ namespace
             {
                 diag += j->J1Minv * j->J1.transpose();
             }
-            
+
             A[i] = diag;
         }
     }
@@ -271,89 +273,149 @@ SolverPGSSM::SolverPGSSM(RigidBodySystem* _rigidBodySystem)
 
 void SolverPGSSM::solveJoints(std::vector<Joint*>& joints, int numJoints)
 {
-    for (int i = 0; i < numJoints; ++i)
+    if (m_useOpenMP)
     {
-        Joint* j = joints[i];
-        Eigen::VectorXf x = bjoint[i];
-        
-        // Accumulate coupled constraints
-        accumulateCoupledConstraints(j, j->J0Minv, j->body0, x);
-        accumulateCoupledConstraints(j, j->J1Minv, j->body1, x);
-        
-        // Solve for lambda
-        solveJoint(Ajoint[i], x, j->lambda);
+        #ifdef _OPENMP
+        #pragma omp parallel for
+        #endif
+        for (int i = 0; i < numJoints; ++i)
+        {
+            Joint* j = joints[i];
+            Eigen::VectorXf x = bjoint[i];
+
+            #pragma omp critical
+            {
+                // Accumulate coupled constraints
+                accumulateCoupledConstraints(j, j->J0Minv, j->body0, x);
+                accumulateCoupledConstraints(j, j->J1Minv, j->body1, x);
+
+                // Solve for lambda
+                solveJoint(Ajoint[i], x, j->lambda);
+            }
+        }
+    }
+    else
+    {
+        for (int i = 0; i < numJoints; ++i)
+        {
+            Joint* j = joints[i];
+            Eigen::VectorXf x = bjoint[i];
+
+            // Accumulate coupled constraints
+            accumulateCoupledConstraints(j, j->J0Minv, j->body0, x);
+            accumulateCoupledConstraints(j, j->J1Minv, j->body1, x);
+
+            // Solve for lambda
+            solveJoint(Ajoint[i], x, j->lambda);
+        }
     }
 }
 
 void SolverPGSSM::solveContacts(std::vector<Contact*>& contacts, int numContacts)
 {
-    for (int i = 0; i < numContacts; ++i)
+    if (m_useOpenMP)
     {
-        Contact* c = contacts[i];
-        Eigen::Vector3f x = bcontact[i];
-        
-        // Accumulate coupled constraints
-        accumulateCoupledConstraints(c, c->J0Minv, c->body0, x);
-        accumulateCoupledConstraints(c, c->J1Minv, c->body1, x);
-        
-        // Create a temporary Vector3f, solve, then copy back
-        Eigen::Vector3f tempLambda = c->lambda.head<3>();
-        solveContact(Acontact[i], x, tempLambda, Contact::mu);
-        c->lambda = tempLambda;
+        #ifdef _OPENMP
+        #pragma omp parallel for
+        #endif
+        for (int i = 0; i < numContacts; ++i)
+        {
+            Contact* c = contacts[i];
+            Eigen::Vector3f x = bcontact[i];
+
+            #pragma omp critical
+            {
+                // Accumulate coupled constraints
+                accumulateCoupledConstraints(c, c->J0Minv, c->body0, x);
+                accumulateCoupledConstraints(c, c->J1Minv, c->body1, x);
+
+                // Create a temporary Vector3f, solve, then copy back
+                Eigen::Vector3f tempLambda = c->lambda.head<3>();
+                solveContact(Acontact[i], x, tempLambda, Contact::mu);
+                c->lambda = tempLambda;
+            }
+        }
+    }
+    else
+    {
+        for (int i = 0; i < numContacts; ++i)
+        {
+            Contact* c = contacts[i];
+            Eigen::Vector3f x = bcontact[i];
+
+            // Accumulate coupled constraints
+            accumulateCoupledConstraints(c, c->J0Minv, c->body0, x);
+            accumulateCoupledConstraints(c, c->J1Minv, c->body1, x);
+
+            // Create a temporary Vector3f, solve, then copy back
+            Eigen::Vector3f tempLambda = c->lambda.head<3>();
+            solveContact(Acontact[i], x, tempLambda, Contact::mu);
+            c->lambda = tempLambda;
+        }
     }
 }
 
 void SolverPGSSM::solveActiveJoints(std::vector<Joint*>& joints, const std::vector<int>& activeIndices)
 {
     #ifdef _OPENMP
-    #pragma omp parallel for if(useOpenMP)
+    #pragma omp parallel for if(m_useOpenMP)
     #endif
     for (int idx = 0; idx < static_cast<int>(activeIndices.size()); ++idx)
     {
         int i = activeIndices[idx];
         if (i >= static_cast<int>(joints.size()))
             continue;
-            
+
         Joint* j = joints[i];
         Eigen::VectorXf x = bjoint[i];
-        
-        // Accumulate coupled constraints
-        accumulateCoupledConstraints(j, j->J0Minv, j->body0, x);
-        accumulateCoupledConstraints(j, j->J1Minv, j->body1, x);
-        
-        // Solve for lambda
-        solveJoint(Ajoint[i], x, j->lambda);
+
+        #ifdef _OPENMP
+        #pragma omp critical
+        #endif
+        {
+            // Accumulate coupled constraints
+            accumulateCoupledConstraints(j, j->J0Minv, j->body0, x);
+            accumulateCoupledConstraints(j, j->J1Minv, j->body1, x);
+
+            // Solve for lambda
+            solveJoint(Ajoint[i], x, j->lambda);
+        }
     }
 }
 
 void SolverPGSSM::solveActiveContacts(std::vector<Contact*>& contacts, const std::vector<int>& activeIndices)
 {
     #ifdef _OPENMP
-    #pragma omp parallel for if(useOpenMP)
+    #pragma omp parallel for if(m_useOpenMP)
     #endif
     for (int idx = 0; idx < static_cast<int>(activeIndices.size()); ++idx)
     {
         int i = activeIndices[idx];
         if (i >= static_cast<int>(contacts.size()))
             continue;
-            
+
         Contact* c = contacts[i];
         Eigen::Vector3f x = bcontact[i];
-        
-        // Accumulate coupled constraints
-        accumulateCoupledConstraints(c, c->J0Minv, c->body0, x);
-        accumulateCoupledConstraints(c, c->J1Minv, c->body1, x);
-        
-        // Create a temporary Vector3f, solve, then copy back
-        Eigen::Vector3f tempLambda = c->lambda.head<3>();
-        solveContact(Acontact[i], x, tempLambda, Contact::mu);
-        c->lambda = tempLambda;
+
+        #ifdef _OPENMP
+        #pragma omp critical
+        #endif
+        {
+            // Accumulate coupled constraints
+            accumulateCoupledConstraints(c, c->J0Minv, c->body0, x);
+            accumulateCoupledConstraints(c, c->J1Minv, c->body1, x);
+
+            // Create a temporary Vector3f, solve, then copy back
+            Eigen::Vector3f tempLambda = c->lambda.head<3>();
+            solveContact(Acontact[i], x, tempLambda, Contact::mu);
+            c->lambda = tempLambda;
+        }
     }
 }
 
-void SolverPGSSM::updateIndexSets(std::vector<Contact*>& contacts, 
-                                std::vector<int>& lowerBound, 
-                                std::vector<int>& upperBound, 
+void SolverPGSSM::updateIndexSets(std::vector<Contact*>& contacts,
+                                std::vector<int>& lowerBound,
+                                std::vector<int>& upperBound,
                                 std::vector<int>& active)
 {
     lowerBound.clear();
@@ -363,26 +425,74 @@ void SolverPGSSM::updateIndexSets(std::vector<Contact*>& contacts,
     const int numContacts = contacts.size();
     const float mu = Contact::mu;
     const float tolerance = 1e-6f;
-    
-    for (int i = 0; i < numContacts; ++i)
+
+    if (m_useOpenMP)
     {
-        Contact* c = contacts[i];
-        
-        // Check if normal force is at lower bound (0)
-        if (c->lambda(0) < tolerance) {
-            lowerBound.push_back(i);
+        // Use temporary storage for parallel classification
+        std::vector<std::vector<int>> lowerBoundTemp, upperBoundTemp, activeTemp;
+
+        #ifdef _OPENMP
+        int numThreads = omp_get_max_threads();
+        lowerBoundTemp.resize(numThreads);
+        upperBoundTemp.resize(numThreads);
+        activeTemp.resize(numThreads);
+
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+
+            #pragma omp for
+            for (int i = 0; i < numContacts; ++i)
+            {
+                Contact* c = contacts[i];
+
+                // Check if normal force is at lower bound (0)
+                if (c->lambda(0) < tolerance) {
+                    lowerBoundTemp[tid].push_back(i);
+                }
+                // Check if friction forces are at boundary
+                else if (std::abs(c->lambda(1)) > mu * c->lambda(0) - tolerance ||
+                         std::abs(c->lambda(2)) > mu * c->lambda(0) - tolerance) {
+                    upperBoundTemp[tid].push_back(i);
+                }
+                // Otherwise, this is an active constraint
+                else {
+                    activeTemp[tid].push_back(i);
+                }
+            }
         }
-        // Check if friction forces are at boundary
-        else if (std::abs(c->lambda(1)) > mu * c->lambda(0) - tolerance ||
-                 std::abs(c->lambda(2)) > mu * c->lambda(0) - tolerance) {
-            upperBound.push_back(i);
+
+        // Merge results from all threads
+        for (int t = 0; t < numThreads; ++t) {
+            lowerBound.insert(lowerBound.end(), lowerBoundTemp[t].begin(), lowerBoundTemp[t].end());
+            upperBound.insert(upperBound.end(), upperBoundTemp[t].begin(), upperBoundTemp[t].end());
+            active.insert(active.end(), activeTemp[t].begin(), activeTemp[t].end());
         }
-        // Otherwise, this is an active constraint
-        else {
-            active.push_back(i);
+        #endif
+    }
+    else
+    {
+        // Serial version
+        for (int i = 0; i < numContacts; ++i)
+        {
+            Contact* c = contacts[i];
+
+            // Check if normal force is at lower bound (0)
+            if (c->lambda(0) < tolerance) {
+                lowerBound.push_back(i);
+            }
+            // Check if friction forces are at boundary
+            else if (std::abs(c->lambda(1)) > mu * c->lambda(0) - tolerance ||
+                     std::abs(c->lambda(2)) > mu * c->lambda(0) - tolerance) {
+                upperBound.push_back(i);
+            }
+            // Otherwise, this is an active constraint
+            else {
+                active.push_back(i);
+            }
         }
     }
-    
+
     // For joints, all are considered active
     m_activeJoints.clear();
     for (int i = 0; i < static_cast<int>(Ajoint.size()); ++i) {
@@ -395,10 +505,10 @@ void SolverPGSSM::solve(float h)
     // Get contacts and joints from the rigid body system
     std::vector<Contact*>& contacts = m_rigidBodySystem->getContacts();
     std::vector<Joint*>& joints = m_rigidBodySystem->getJoints();
-    
+
     const int numContacts = contacts.size();
     const int numJoints = joints.size();
-    
+
     // If no constraints, early exit
     if (numContacts == 0 && numJoints == 0)
         return;
@@ -408,20 +518,20 @@ void SolverPGSSM::solve(float h)
     Acontact.resize(numContacts);
     bjoint.resize(numJoints);
     bcontact.resize(numContacts);
-    
+
     // Build diagonal matrices for joints
     if (numJoints > 0) {
-        buildJointMatrices(joints, Ajoint);
+        buildJointMatrices(joints, Ajoint, m_useOpenMP);
     }
-    
+
     // Build diagonal matrices for contacts
     if (numContacts > 0) {
-        buildContactMatrices(contacts, Acontact);
+        buildContactMatrices(contacts, Acontact, m_useOpenMP);
     }
-    
+
     // Compute RHS vectors for joints
     #ifdef _OPENMP
-    #pragma omp parallel for if(useOpenMP)
+    #pragma omp parallel for if(m_useOpenMP)
     #endif
     for (int i = 0; i < numJoints; ++i) {
         Joint* j = joints[i];
@@ -430,10 +540,10 @@ void SolverPGSSM::solve(float h)
         buildRHS(j, h, bjoint[i], m_gamma);
         j->lambda.setZero();
     }
-    
+
     // Compute RHS vectors for contacts
     #ifdef _OPENMP
-    #pragma omp parallel for if(useOpenMP)
+    #pragma omp parallel for if(m_useOpenMP)
     #endif
     for (int i = 0; i < numContacts; ++i) {
         Contact* c = contacts[i];

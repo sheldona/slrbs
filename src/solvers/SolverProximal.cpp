@@ -13,19 +13,50 @@
 #include <algorithm>
 #include <cmath>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 using namespace slrbs;
 
 namespace {
 // Count active (non‑clamped) constraints
 static inline int countActiveConstraints(
-    const std::vector<Eigen::Vector3f>& lambda, float mu)
+    const std::vector<Eigen::Vector3f>& lambda, float mu, bool useOpenMP)
 {
     int count = 0;
-    for (auto& l : lambda) {
-        float n = l[0];
-        Eigen::Vector2f ft = l.tail<2>();
-        float lim = mu * n;
-        if (n > 0 && ft.lpNorm<Eigen::Infinity>() < lim) ++count;
+
+    if (useOpenMP)
+    {
+        #ifdef _OPENMP
+        int localCounts[omp_get_max_threads()] = {0};
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            #pragma omp for
+            for (int i = 0; i < static_cast<int>(lambda.size()); ++i) {
+                const auto& l = lambda[i];
+                float n = l[0];
+                Eigen::Vector2f ft = l.tail<2>();
+                float lim = mu * n;
+                if (n > 0 && ft.lpNorm<Eigen::Infinity>() < lim)
+                    ++localCounts[tid];
+            }
+        }
+        // Combine results from all threads
+        for (int i = 0; i < omp_get_max_threads(); ++i) {
+            count += localCounts[i];
+        }
+        #endif
+    }
+    else
+    {
+        for (auto& l : lambda) {
+            float n = l[0];
+            Eigen::Vector2f ft = l.tail<2>();
+            float lim = mu * n;
+            if (n > 0 && ft.lpNorm<Eigen::Infinity>() < lim) ++count;
+        }
     }
     return count;
 }
@@ -95,24 +126,48 @@ static inline void buildRHS(
 static inline void initializeR(
     const std::vector<Eigen::Matrix3f>& A,
     std::vector<Eigen::Matrix3f>& R,
-    std::vector<Eigen::Matrix3f>& nu)
+    std::vector<Eigen::Matrix3f>& nu,
+    bool useOpenMP)
 {
     static int frameCount = 0;
     ++frameCount;
     size_t M = A.size();
     R.resize(M);
     nu.resize(M);
-    for (size_t i = 0; i < M; ++i) {
-        float t = std::clamp(A[i].trace() / 9.0f, 0.1f, 1.0f);
-        if (frameCount < 5) {
-            R[i]  = 0.5f * t * Eigen::Matrix3f::Identity();
-            nu[i] = 0.8f * t * Eigen::Matrix3f::Identity();
-        } else if (frameCount < 10) {
-            R[i]  = 0.3f * t * Eigen::Matrix3f::Identity();
-            nu[i] = 0.9f * t * Eigen::Matrix3f::Identity();
-        } else {
-            R[i]  = 0.2f * Eigen::Matrix3f::Identity();
-            nu[i] = 0.9f * t * Eigen::Matrix3f::Identity();
+
+    if (useOpenMP)
+    {
+        #ifdef _OPENMP
+        #pragma omp parallel for
+        for (int i = 0; i < static_cast<int>(M); ++i) {
+            float t = std::clamp(A[i].trace() / 9.0f, 0.1f, 1.0f);
+            if (frameCount < 5) {
+                R[i]  = 0.5f * t * Eigen::Matrix3f::Identity();
+                nu[i] = 0.8f * t * Eigen::Matrix3f::Identity();
+            } else if (frameCount < 10) {
+                R[i]  = 0.3f * t * Eigen::Matrix3f::Identity();
+                nu[i] = 0.9f * t * Eigen::Matrix3f::Identity();
+            } else {
+                R[i]  = 0.2f * Eigen::Matrix3f::Identity();
+                nu[i] = 0.9f * t * Eigen::Matrix3f::Identity();
+            }
+        }
+        #endif
+    }
+    else
+    {
+        for (size_t i = 0; i < M; ++i) {
+            float t = std::clamp(A[i].trace() / 9.0f, 0.1f, 1.0f);
+            if (frameCount < 5) {
+                R[i]  = 0.5f * t * Eigen::Matrix3f::Identity();
+                nu[i] = 0.8f * t * Eigen::Matrix3f::Identity();
+            } else if (frameCount < 10) {
+                R[i]  = 0.3f * t * Eigen::Matrix3f::Identity();
+                nu[i] = 0.9f * t * Eigen::Matrix3f::Identity();
+            } else {
+                R[i]  = 0.2f * Eigen::Matrix3f::Identity();
+                nu[i] = 0.9f * t * Eigen::Matrix3f::Identity();
+            }
         }
     }
 }
@@ -186,7 +241,7 @@ void SolverProximal::exportActiveConstraints(const std::vector<Eigen::Vector3f>&
 {
     if (!m_exportEnabled || !m_logEnabled[LogType::ACTIVE_CONSTRAINTS] || !m_dataLogger)
         return;
-    int active = countActiveConstraints(lam, mu);
+    int active = countActiveConstraints(lam, mu, m_useOpenMP);
     int total  = static_cast<int>(lam.size()) * 3;
     m_dataLogger->logInt("Active", active);
     m_dataLogger->logInt("Inactive", total - active);
@@ -236,49 +291,143 @@ void SolverProximal::solve(float h) {
     std::vector<Eigen::Matrix3f> A(M);
     std::vector<Eigen::Vector3f> lam(M), b(M);
     std::vector<float> mu(M);
-    for (int i = 0; i < M; ++i) {
-        auto* c = C[i];
-        mu[i] = c->mu;
-        A[i].setZero();
-        float cmix = 1.0f / (h * c->k + c->bias);
-        A[i].diagonal().array() = cmix;
-        if (!c->body0->fixed) A[i] += c->J0Minv * c->J0.transpose();
-        if (!c->body1->fixed) A[i] += c->J1Minv * c->J1.transpose();
-        buildRHS(c, h, b[i]);
-        c->lambda.setZero();
+
+    if (m_useOpenMP)
+    {
+        #ifdef _OPENMP
+        #pragma omp parallel for
+        for (int i = 0; i < M; ++i) {
+            auto* c = C[i];
+            mu[i] = c->mu;
+            A[i].setZero();
+            float cmix = 1.0f / (h * c->k + c->bias);
+            A[i].diagonal().array() = cmix;
+            if (!c->body0->fixed) A[i] += c->J0Minv * c->J0.transpose();
+            if (!c->body1->fixed) A[i] += c->J1Minv * c->J1.transpose();
+            buildRHS(c, h, b[i]);
+            c->lambda.setZero();
+        }
+        #endif
     }
+    else
+    {
+        for (int i = 0; i < M; ++i) {
+            auto* c = C[i];
+            mu[i] = c->mu;
+            A[i].setZero();
+            float cmix = 1.0f / (h * c->k + c->bias);
+            A[i].diagonal().array() = cmix;
+            if (!c->body0->fixed) A[i] += c->J0Minv * c->J0.transpose();
+            if (!c->body1->fixed) A[i] += c->J1Minv * c->J1.transpose();
+            buildRHS(c, h, b[i]);
+            c->lambda.setZero();
+        }
+    }
+
     if (m_exportEnabled && m_logEnabled[LogType::MATRICES])
         exportMatrices(A, C);
 
     std::vector<Eigen::Vector3f> lamCand(M), resid(M);
     std::vector<Eigen::Matrix3f> R, nu;
     std::vector<Eigen::VectorXf> w(N, Eigen::VectorXf::Zero(6));
-    initializeR(A, R, nu);
+    initializeR(A, R, nu, m_useOpenMP);
 
     float absTol = 1e-5f, relTol = 1e-5f;
     int it = 0;
     float last = 0, cur = 0;
     for (it = 0; it < m_maxIter; ++it) {
-        for (auto& wv : w) wv.setZero();
-        for (int i = 0; i < M; ++i) {
-            auto* c = C[i];
-            updateW(w[idx[c->body0]], c->MinvJ0T, c->lambda);
-            updateW(w[idx[c->body1]], c->MinvJ1T, c->lambda);
+        // Reset w vector
+        if (m_useOpenMP)
+        {
+            #ifdef _OPENMP
+            #pragma omp parallel for
+            for (int i = 0; i < N; ++i) {
+                w[i].setZero();
+            }
+            #endif
         }
+        else
+        {
+            for (auto& wv : w) wv.setZero();
+        }
+
+        // Accumulate initial w
+        if (m_useOpenMP)
+        {
+            #ifdef _OPENMP
+            #pragma omp parallel for
+            for (int i = 0; i < M; ++i) {
+                auto* c = C[i];
+                #pragma omp critical
+                {
+                    updateW(w[idx[c->body0]], c->MinvJ0T, c->lambda);
+                    updateW(w[idx[c->body1]], c->MinvJ1T, c->lambda);
+                }
+            }
+            #endif
+        }
+        else
+        {
+            for (int i = 0; i < M; ++i) {
+                auto* c = C[i];
+                updateW(w[idx[c->body0]], c->MinvJ0T, c->lambda);
+                updateW(w[idx[c->body1]], c->MinvJ1T, c->lambda);
+            }
+        }
+
         cur = 0;
-        for (int i = 0; i < M; ++i) {
-            auto* c = C[i];
-            int i0 = idx[c->body0], i1 = idx[c->body1];
-            Eigen::Vector3f z = c->lambda
-                - R[i] * (c->J0 * w[i0] + c->J1 * w[i1] + b[i]);
-            lamCand[i] = c->lambda;
-            proxN(z, lamCand[i]);
-            proxF(z, lamCand[i], mu[i]);
-            resid[i] = lamCand[i] - c->lambda;
-            cur = std::max(cur, resid[i].lpNorm<Eigen::Infinity>());
-            updateW(w[i0], c->MinvJ0T, resid[i]);
-            updateW(w[i1], c->MinvJ1T, resid[i]);
+        if (m_useOpenMP)
+        {
+            #ifdef _OPENMP
+            float local_max[omp_get_max_threads()] = {0};
+
+            #pragma omp parallel
+            {
+                int tid = omp_get_thread_num();
+
+                #pragma omp for
+                for (int i = 0; i < M; ++i) {
+                    auto* c = C[i];
+                    int i0 = idx[c->body0], i1 = idx[c->body1];
+                    Eigen::Vector3f z = c->lambda
+                        - R[i] * (c->J0 * w[i0] + c->J1 * w[i1] + b[i]);
+                    lamCand[i] = c->lambda;
+                    proxN(z, lamCand[i]);
+                    proxF(z, lamCand[i], mu[i]);
+                    resid[i] = lamCand[i] - c->lambda;
+                    local_max[tid] = std::max(local_max[tid], resid[i].lpNorm<Eigen::Infinity>());
+
+                    #pragma omp critical
+                    {
+                        updateW(w[i0], c->MinvJ0T, resid[i]);
+                        updateW(w[i1], c->MinvJ1T, resid[i]);
+                    }
+                }
+            }
+
+            // Combine max results from all threads
+            for (int i = 0; i < omp_get_max_threads(); ++i) {
+                cur = std::max(cur, local_max[i]);
+            }
+            #endif
         }
+        else
+        {
+            for (int i = 0; i < M; ++i) {
+                auto* c = C[i];
+                int i0 = idx[c->body0], i1 = idx[c->body1];
+                Eigen::Vector3f z = c->lambda
+                    - R[i] * (c->J0 * w[i0] + c->J1 * w[i1] + b[i]);
+                lamCand[i] = c->lambda;
+                proxN(z, lamCand[i]);
+                proxF(z, lamCand[i], mu[i]);
+                resid[i] = lamCand[i] - c->lambda;
+                cur = std::max(cur, resid[i].lpNorm<Eigen::Infinity>());
+                updateW(w[i0], c->MinvJ0T, resid[i]);
+                updateW(w[i1], c->MinvJ1T, resid[i]);
+            }
+        }
+
         if (m_exportEnabled && m_logEnabled[LogType::ACTIVE_CONSTRAINTS])
             exportActiveConstraints(lamCand, mu[0]);
         if (m_exportEnabled && m_logEnabled[LogType::RESIDUAL])
@@ -286,17 +435,71 @@ void SolverProximal::solve(float h) {
         if (cur < absTol) break;
         if (it > 0 && std::fabs(cur - last) < relTol * last) break;
         last = cur;
-        for (int i = 0; i < M; ++i)
-            C[i]->lambda = lamCand[i];
+
+        // Update lambda values
+        if (m_useOpenMP)
+        {
+            #ifdef _OPENMP
+            #pragma omp parallel for
+            for (int i = 0; i < M; ++i) {
+                C[i]->lambda = lamCand[i];
+            }
+            #endif
+        }
+        else
+        {
+            for (int i = 0; i < M; ++i)
+                C[i]->lambda = lamCand[i];
+        }
+
         if (it > 0 && cur > last) {
-            for (auto& Ri : R) Ri.diagonal().setConstant(0.2f);
+            if (m_useOpenMP)
+            {
+                #ifdef _OPENMP
+                #pragma omp parallel for
+                for (int i = 0; i < static_cast<int>(R.size()); ++i) {
+                    R[i].diagonal().setConstant(0.2f);
+                }
+                #endif
+            }
+            else
+            {
+                for (auto& Ri : R) Ri.diagonal().setConstant(0.2f);
+            }
         } else if (m_exportEnabled && m_logEnabled[LogType::MATRIX_R] && (it % 10) == 0) {
             exportRValues(R);
         }
     }
+
+    // Compute final LCP error
     float totalErr = 0;
-    for (int i = 0; i < M; ++i)
-        totalErr += computeLCPError(C[i]->lambda, A[i], b[i], C[i]->mu);
+    if (m_useOpenMP)
+    {
+        #ifdef _OPENMP
+        float local_errors[omp_get_max_threads()] = {0};
+
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+
+            #pragma omp for
+            for (int i = 0; i < M; ++i) {
+                local_errors[tid] += computeLCPError(C[i]->lambda, A[i], b[i], C[i]->mu);
+            }
+        }
+
+        // Combine error results from all threads
+        for (int i = 0; i < omp_get_max_threads(); ++i) {
+            totalErr += local_errors[i];
+        }
+        #endif
+    }
+    else
+    {
+        for (int i = 0; i < M; ++i)
+            totalErr += computeLCPError(C[i]->lambda, A[i], b[i], C[i]->mu);
+    }
+
     float avgErr = M ? totalErr / M : 0.0f;
     if (m_exportEnabled && m_logEnabled[LogType::LCP_ERROR])
         exportLCPError(avgErr);

@@ -10,6 +10,10 @@
 #include <cmath>
 #include <algorithm>
 
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
+
 namespace
 {
     static inline void multAndSub(const JBlock &G, const Eigen::Vector3f &x, const Eigen::Vector3f &y,
@@ -23,189 +27,331 @@ namespace
         b -= a * G.col(5) * y(2);
     }
 
-    // Computes the right‑hand side vector of the Schur complement system:
-    //      b = -phi/h - J*vel - h*JMinv*force
     static inline void buildRHS(const std::vector<Joint *> &joints, const std::vector<Contact *> &contacts,
-                                float h, Eigen::VectorXf &b)
+                               float h, Eigen::VectorXf &b, bool useOpenMP)
     {
         const float hinv  = 1.0f / h;
         const float gamma = 0.3f;
 
         // Build RHS for joints
-        for (Joint *j : joints)
+#ifdef USE_OPENMP
+        if (useOpenMP && joints.size() > 16)
         {
-            b.segment(j->idx, j->dim) = -hinv * gamma * j->phi;
+            #pragma omp parallel for
+            for (int i = 0; i < static_cast<int>(joints.size()); ++i)
+            {
+                Joint *j = joints[i];
+                b.segment(j->idx, j->dim) = -hinv * gamma * j->phi;
 
-            if (!j->body0->fixed)
-            {
-                auto seg = b.segment(j->idx, j->dim);
-                multAndSub(j->J0Minv, j->body0->f,   j->body0->tau,  h,   seg);
-                multAndSub(j->J0,      j->body0->xdot, j->body0->omega, 1.0f, seg);
+                if (!j->body0->fixed)
+                {
+                    auto seg = b.segment(j->idx, j->dim);
+                    multAndSub(j->J0Minv, j->body0->f, j->body0->tau, h, seg);
+                    multAndSub(j->J0, j->body0->xdot, j->body0->omega, 1.0f, seg);
+                }
+                if (!j->body1->fixed)
+                {
+                    auto seg = b.segment(j->idx, j->dim);
+                    multAndSub(j->J1Minv, j->body1->f, j->body1->tau, h, seg);
+                    multAndSub(j->J1, j->body1->xdot, j->body1->omega, 1.0f, seg);
+                }
             }
-            if (!j->body1->fixed)
+
+            // Build RHS for contacts
+            #pragma omp parallel for
+            for (int i = 0; i < static_cast<int>(contacts.size()); ++i)
             {
-                auto seg = b.segment(j->idx, j->dim);
-                multAndSub(j->J1Minv, j->body1->f,   j->body1->tau,  h,   seg);
-                multAndSub(j->J1,      j->body1->xdot, j->body1->omega, 1.0f, seg);
+                Contact *c = contacts[i];
+                b.segment(c->idx, 3) = -hinv * gamma * c->phi;
+
+                if (!c->body0->fixed)
+                {
+                    auto seg = b.segment(c->idx, 3);
+                    multAndSub(c->J0Minv, c->body0->f, c->body0->tau, h, seg);
+                    multAndSub(c->J0, c->body0->xdot, c->body0->omega, 1.0f, seg);
+                }
+                if (!c->body1->fixed)
+                {
+                    auto seg = b.segment(c->idx, 3);
+                    multAndSub(c->J1Minv, c->body1->f, c->body1->tau, h, seg);
+                    multAndSub(c->J1, c->body1->xdot, c->body1->omega, 1.0f, seg);
+                }
             }
         }
-
-        // Build RHS for contacts
-        for (Contact *c : contacts)
+        else
+#endif
         {
-            b.segment(c->idx, 3) = -hinv * gamma * c->phi;
+            // Serial version
+            for (Joint *j : joints)
+            {
+                b.segment(j->idx, j->dim) = -hinv * gamma * j->phi;
 
-            if (!c->body0->fixed)
-            {
-                auto seg = b.segment(c->idx, 3);
-                multAndSub(c->J0Minv, c->body0->f,   c->body0->tau,  h,   seg);
-                multAndSub(c->J0,      c->body0->xdot, c->body0->omega, 1.0f, seg);
+                if (!j->body0->fixed)
+                {
+                    auto seg = b.segment(j->idx, j->dim);
+                    multAndSub(j->J0Minv, j->body0->f, j->body0->tau, h, seg);
+                    multAndSub(j->J0, j->body0->xdot, j->body0->omega, 1.0f, seg);
+                }
+                if (!j->body1->fixed)
+                {
+                    auto seg = b.segment(j->idx, j->dim);
+                    multAndSub(j->J1Minv, j->body1->f, j->body1->tau, h, seg);
+                    multAndSub(j->J1, j->body1->xdot, j->body1->omega, 1.0f, seg);
+                }
             }
-            if (!c->body1->fixed)
+
+            // Build RHS for contacts
+            for (Contact *c : contacts)
             {
-                auto seg = b.segment(c->idx, 3);
-                multAndSub(c->J1Minv, c->body1->f,   c->body1->tau,  h,   seg);
-                multAndSub(c->J1,      c->body1->xdot, c->body1->omega, 1.0f, seg);
+                b.segment(c->idx, 3) = -hinv * gamma * c->phi;
+
+                if (!c->body0->fixed)
+                {
+                    auto seg = b.segment(c->idx, 3);
+                    multAndSub(c->J0Minv, c->body0->f, c->body0->tau, h, seg);
+                    multAndSub(c->J0, c->body0->xdot, c->body0->omega, 1.0f, seg);
+                }
+                if (!c->body1->fixed)
+                {
+                    auto seg = b.segment(c->idx, 3);
+                    multAndSub(c->J1Minv, c->body1->f, c->body1->tau, h, seg);
+                    multAndSub(c->J1, c->body1->xdot, c->body1->omega, 1.0f, seg);
+                }
             }
         }
     }
 
-    static inline void computeAx(const std::vector<Joint *> &joints, const std::vector<Contact *> &contacts,
-                                const Eigen::VectorXf &x, Eigen::VectorXf &Ax)
+    static inline void accumulateCoupled(const Joint *j, const JBlock &JMinv, const RigidBody *body,
+                                         const Eigen::VectorXf &x, Eigen::VectorXf &Ax)
     {
-        constexpr float eps = 1e-9f; // To keep A positive‑definite
+        // Accumulate coupled joints
+        for (Joint *jj : body->joints)
+        {
+            if (jj == j) continue;
+            const auto segOther = x.segment(jj->idx, jj->dim);
+            Ax.segment(j->idx, j->dim) += JMinv * ((body == jj->body0 ? jj->J0 : jj->J1).transpose() * segOther);
+        }
+
+        // Accumulate coupled contacts
+        for (Contact *c : body->contacts)
+        {
+            const auto segOther = x.segment(c->idx, 3);
+            Ax.segment(j->idx, j->dim) += JMinv * ((body == c->body0 ? c->J0 : c->J1).transpose() * segOther);
+        }
+    }
+
+    static inline void accumulateCoupledForContact(const Contact *c, const JBlock &JMinv, const RigidBody *body,
+                                                  const Eigen::VectorXf &x, Eigen::VectorXf &Ax)
+    {
+        // Accumulate coupled joints
+        for (Joint *j : body->joints)
+        {
+            const auto segOther = x.segment(j->idx, j->dim);
+            Ax.segment(c->idx, 3) += JMinv * ((body == j->body0 ? j->J0 : j->J1).transpose() * segOther);
+        }
+
+        // Accumulate coupled contacts
+        for (Contact *cc : body->contacts)
+        {
+            if (cc == c) continue;
+            const auto segOther = x.segment(cc->idx, 3);
+            Ax.segment(c->idx, 3) += JMinv * ((body == cc->body0 ? cc->J0 : cc->J1).transpose() * segOther);
+        }
+    }
+
+    static inline void computeAx(const std::vector<Joint *> &joints, const std::vector<Contact *> &contacts,
+                                const Eigen::VectorXf &x, Eigen::VectorXf &Ax, bool useOpenMP)
+    {
+        constexpr float eps = 1e-9f;   // to keep A positive‑definite
         Ax.setZero();
 
-        // Compute Ax for joints
-        for (Joint *j : joints)
+#ifdef USE_OPENMP
+        if (useOpenMP && (joints.size() > 16 || contacts.size() > 16))
         {
-            Ax.segment(j->idx, j->dim).noalias() += eps * x.segment(j->idx, j->dim);
-
-            const RigidBody *body0 = j->body0;
-            const RigidBody *body1 = j->body1;
-
-            if (!body0->fixed)
+            // Compute Ax for joints with OpenMP
+            #pragma omp parallel
             {
-                Ax.segment(j->idx, j->dim) += j->J0Minv * (j->J0.transpose() * x.segment(j->idx, j->dim));
+                // Thread-local copy of Ax to avoid race conditions
+                Eigen::VectorXf localAx = Eigen::VectorXf::Zero(Ax.size());
 
-                for (Joint *jj : body0->joints)
+                #pragma omp for
+                for (int i = 0; i < static_cast<int>(joints.size()); ++i)
                 {
-                    if (jj == j) continue;
-                    const auto segOther = x.segment(jj->idx, jj->dim);
-                    Ax.segment(j->idx, j->dim) += j->J0Minv * ((body0 == jj->body0 ? jj->J0 : jj->J1).transpose() * segOther);
+                    Joint *j = joints[i];
+                    localAx.segment(j->idx, j->dim).noalias() += eps * x.segment(j->idx, j->dim);
+
+                    const RigidBody *body0 = j->body0;
+                    const RigidBody *body1 = j->body1;
+
+                    if (!body0->fixed)
+                    {
+                        localAx.segment(j->idx, j->dim) += j->J0Minv * (j->J0.transpose() * x.segment(j->idx, j->dim));
+                        accumulateCoupled(j, j->J0Minv, body0, x, localAx);
+                    }
+                    if (!body1->fixed)
+                    {
+                        localAx.segment(j->idx, j->dim) += j->J1Minv * (j->J1.transpose() * x.segment(j->idx, j->dim));
+                        accumulateCoupled(j, j->J1Minv, body1, x, localAx);
+                    }
                 }
 
-                for (Contact *c : body0->contacts)
+                // Compute Ax for contacts with OpenMP
+                #pragma omp for
+                for (int i = 0; i < static_cast<int>(contacts.size()); ++i)
                 {
-                    const auto segOther = x.segment(c->idx, 3);
-                    Ax.segment(j->idx, j->dim) += j->J0Minv * ((body0 == c->body0 ? c->J0 : c->J1).transpose() * segOther);
+                    Contact *c = contacts[i];
+                    localAx.segment(c->idx, 3).noalias() += eps * x.segment(c->idx, 3);
+
+                    const RigidBody *body0 = c->body0;
+                    const RigidBody *body1 = c->body1;
+
+                    if (!body0->fixed)
+                    {
+                        localAx.segment(c->idx, 3) += c->J0Minv * (c->J0.transpose() * x.segment(c->idx, 3));
+                        accumulateCoupledForContact(c, c->J0Minv, body0, x, localAx);
+                    }
+                    if (!body1->fixed)
+                    {
+                        localAx.segment(c->idx, 3) += c->J1Minv * (c->J1.transpose() * x.segment(c->idx, 3));
+                        accumulateCoupledForContact(c, c->J1Minv, body1, x, localAx);
+                    }
                 }
-            }
 
-            if (!body1->fixed)
-            {
-                Ax.segment(j->idx, j->dim) += j->J1Minv * (j->J1.transpose() * x.segment(j->idx, j->dim));
-
-                for (Joint *jj : body1->joints)
+                // Merge thread-local results
+                #pragma omp critical
                 {
-                    if (jj == j) continue;
-                    const auto segOther = x.segment(jj->idx, jj->dim);
-                    Ax.segment(j->idx, j->dim) += j->J1Minv * ((body1 == jj->body0 ? jj->J0 : jj->J1).transpose() * segOther);
-                }
-
-                for (Contact *c : body1->contacts)
-                {
-                    const auto segOther = x.segment(c->idx, 3);
-                    Ax.segment(j->idx, j->dim) += j->J1Minv * ((body1 == c->body0 ? c->J0 : c->J1).transpose() * segOther);
+                    Ax += localAx;
                 }
             }
         }
-
-        // Compute Ax for contacts
-        for (Contact *c : contacts)
+        else
+#endif
         {
-            Ax.segment(c->idx, 3).noalias() += eps * x.segment(c->idx, 3);
-
-            const RigidBody *body0 = c->body0;
-            const RigidBody *body1 = c->body1;
-
-            if (!body0->fixed)
+            // Serial version
+            // Compute Ax for joints
+            for (Joint *j : joints)
             {
-                Ax.segment(c->idx, 3) += c->J0Minv * (c->J0.transpose() * x.segment(c->idx, 3));
+                Ax.segment(j->idx, j->dim).noalias() += eps * x.segment(j->idx, j->dim);
 
-                for (Joint *j : body0->joints)
+                const RigidBody *body0 = j->body0;
+                const RigidBody *body1 = j->body1;
+
+                if (!body0->fixed)
                 {
-                    const auto segOther = x.segment(j->idx, j->dim);
-                    Ax.segment(c->idx, 3) += c->J0Minv * ((body0 == j->body0 ? j->J0 : j->J1).transpose() * segOther);
+                    Ax.segment(j->idx, j->dim) += j->J0Minv * (j->J0.transpose() * x.segment(j->idx, j->dim));
+                    accumulateCoupled(j, j->J0Minv, body0, x, Ax);
                 }
-
-                for (Contact *cc : body0->contacts)
+                if (!body1->fixed)
                 {
-                    if (cc == c) continue;
-                    const auto segOther = x.segment(cc->idx, 3);
-                    Ax.segment(c->idx, 3) += c->J0Minv * ((body0 == cc->body0 ? cc->J0 : cc->J1).transpose() * segOther);
+                    Ax.segment(j->idx, j->dim) += j->J1Minv * (j->J1.transpose() * x.segment(j->idx, j->dim));
+                    accumulateCoupled(j, j->J1Minv, body1, x, Ax);
                 }
             }
 
-            if (!body1->fixed)
+            // Compute Ax for contacts
+            for (Contact *c : contacts)
             {
-                Ax.segment(c->idx, 3) += c->J1Minv * (c->J1.transpose() * x.segment(c->idx, 3));
+                Ax.segment(c->idx, 3).noalias() += eps * x.segment(c->idx, 3);
 
-                for (Joint *j : body1->joints)
+                const RigidBody *body0 = c->body0;
+                const RigidBody *body1 = c->body1;
+
+                if (!body0->fixed)
                 {
-                    const auto segOther = x.segment(j->idx, j->dim);
-                    Ax.segment(c->idx, 3) += c->J1Minv * ((body1 == j->body0 ? j->J0 : j->J1).transpose() * segOther);
+                    Ax.segment(c->idx, 3) += c->J0Minv * (c->J0.transpose() * x.segment(c->idx, 3));
+                    accumulateCoupledForContact(c, c->J0Minv, body0, x, Ax);
                 }
-
-                for (Contact *cc : body1->contacts)
+                if (!body1->fixed)
                 {
-                    if (cc == c) continue;
-                    const auto segOther = x.segment(cc->idx, 3);
-                    Ax.segment(c->idx, 3) += c->J1Minv * ((body1 == cc->body0 ? cc->J0 : cc->J1).transpose() * segOther);
+                    Ax.segment(c->idx, 3) += c->J1Minv * (c->J1.transpose() * x.segment(c->idx, 3));
+                    accumulateCoupledForContact(c, c->J1Minv, body1, x, Ax);
                 }
             }
         }
     }
 
     // Project contact constraints to satisfy friction cone
-    static inline void projectContactConstraints(const std::vector<Contact *> &contacts, Eigen::VectorXf &x)
+    static inline void projectContactConstraints(const std::vector<Contact *> &contacts, Eigen::VectorXf &x, bool useOpenMP)
     {
-        const float eps = 1e-6f; // Small epsilon to avoid numerical issues with very small values
+        const float eps = 1e-10f; // Small epsilon to avoid numerical issues with very small values
 
-        for (Contact *c : contacts)
+#ifdef USE_OPENMP
+        if (useOpenMP && contacts.size() > 16)
         {
-            // Normal impulse is projected to [0, inf]
-            x(c->idx) = std::max(0.0f, x(c->idx));
-
-            // Get normal impulse value for friction cone
-            const float normalImpulse = x(c->idx);
-
-            // If normal impulse is very small, set friction to zero to avoid numerical issues
-            if (normalImpulse < eps)
+            #pragma omp parallel for
+            for (int i = 0; i < static_cast<int>(contacts.size()); ++i)
             {
-                x(c->idx + 1) = 0.0f;
-                x(c->idx + 2) = 0.0f;
+                Contact *c = contacts[i];
+                // Normal impulse is projected to [0, inf]
+                x(c->idx) = std::max(0.0f, x(c->idx));
+
+                // Get normal impulse value for friction cone
+                const float normalImpulse = x(c->idx);
+
+                // If normal impulse is very small, set friction to zero to avoid numerical issues
+                if (normalImpulse < eps)
+                {
+                    x(c->idx + 1) = 0.0f;
+                    x(c->idx + 2) = 0.0f;
+                }
+                else
+                {
+                    // Friction impulses are projected to [-mu * normalImpulse, mu * normalImpulse]
+                    const float upperBound = c->mu * normalImpulse;
+                    const float lowerBound = -upperBound;
+
+                    x(c->idx + 1) = std::max(lowerBound, std::min(upperBound, x(c->idx + 1)));
+                    x(c->idx + 2) = std::max(lowerBound, std::min(upperBound, x(c->idx + 2)));
+
+                    // Additional step for box scenarios: handle tangential friction with a circular constraint
+                    float frictionMag = std::sqrt(x(c->idx + 1) * x(c->idx + 1) + x(c->idx + 2) * x(c->idx + 2));
+                    if (frictionMag > upperBound && frictionMag > eps) {
+                        float scale = upperBound / frictionMag;
+                        x(c->idx + 1) *= scale;
+                        x(c->idx + 2) *= scale;
+                    }
+                }
             }
-            else
+        }
+        else
+#endif
+        {
+            // Serial version
+            for (Contact *c : contacts)
             {
-                // Friction impulses are projected to [-mu * normalImpulse, mu * normalImpulse]
-                const float upperBound = c->mu * normalImpulse;
-                const float lowerBound = -upperBound;
+                // Normal impulse is projected to [0, inf]
+                x(c->idx) = std::max(0.0f, x(c->idx));
 
-                x(c->idx + 1) = std::max(lowerBound, std::min(upperBound, x(c->idx + 1)));
-                x(c->idx + 2) = std::max(lowerBound, std::min(upperBound, x(c->idx + 2)));
+                // Get normal impulse value for friction cone
+                const float normalImpulse = x(c->idx);
 
-                // Additional step for box scenarios: handle tangential friction with a circular constraint
-                float frictionMag = std::sqrt(x(c->idx + 1) * x(c->idx + 1) + x(c->idx + 2) * x(c->idx + 2));
-                if (frictionMag > upperBound && frictionMag > eps) {
-                    float scale = upperBound / frictionMag;
-                    x(c->idx + 1) *= scale;
-                    x(c->idx + 2) *= scale;
+                // If normal impulse is very small, set friction to zero to avoid numerical issues
+                if (normalImpulse < eps)
+                {
+                    x(c->idx + 1) = 0.0f;
+                    x(c->idx + 2) = 0.0f;
+                }
+                else
+                {
+                    // Friction impulses are projected to [-mu * normalImpulse, mu * normalImpulse]
+                    const float upperBound = c->mu * normalImpulse;
+                    const float lowerBound = -upperBound;
+
+                    x(c->idx + 1) = std::max(lowerBound, std::min(upperBound, x(c->idx + 1)));
+                    x(c->idx + 2) = std::max(lowerBound, std::min(upperBound, x(c->idx + 2)));
+
+                    // Additional step for box scenarios: handle tangential friction with a circular constraint
+                    float frictionMag = std::sqrt(x(c->idx + 1) * x(c->idx + 1) + x(c->idx + 2) * x(c->idx + 2));
+                    if (frictionMag > upperBound && frictionMag > eps) {
+                        float scale = upperBound / frictionMag;
+                        x(c->idx + 1) *= scale;
+                        x(c->idx + 2) *= scale;
+                    }
                 }
             }
         }
     }
-}
+} // anonymous namespace
 
 SolverConjGradient::SolverConjGradient(RigidBodySystem *system) : Solver(system) {}
 
@@ -222,95 +368,91 @@ void SolverConjGradient::solve(float h)
     // Early exit if no constraints
     if (idx == 0) return;
 
-    Eigen::VectorXf x(idx), r(idx), p(idx), b(idx), Ax(idx), Ap(idx);
+    Eigen::VectorXf x(idx), r(idx), p(idx), b(idx), Ax(idx);
+
     x.setZero();
-    buildRHS(joints, contacts, h, b);
+    buildRHS(joints, contacts, h, b, m_useOpenMP);
 
-    // Regularization to help with marble box scenarios
-    const float regFactor = 1.0f + 1e-4f * std::min(static_cast<float>(contacts.size()), 100.0f);
-
-    // Apply damping to the right-hand side to stabilize the solution
-    if (!contacts.empty()) {
-        b *= 0.98f;
-    }
-
-    computeAx(joints, contacts, x, Ax);
+    // Initial residual setup
+    computeAx(joints, contacts, x, Ax, m_useOpenMP);
     r = b - Ax;
     p = r;
 
-    float rTr = r.dot(r);
-    float rTr0 = rTr;
-    const float tolerance = 1e-10f * rTr0;
+    float rsold = r.dot(r);
+    float rsnew = rsold;
+    float initialResidual = rsold;
 
-    // Maximum iterations is dynamically adjusted based on contact count for marble box scenario
-    int adjustedMaxIter = m_maxIter;
-    if (contacts.size() > 50) {
-        adjustedMaxIter = std::min(100, m_maxIter + static_cast<int>(contacts.size() / 10));
+    // Early exit if initial residual is already small
+    const float tolerance = 1e-8f * initialResidual;
+    if (rsold < tolerance) {
+        // Store zero solution
+#ifdef USE_OPENMP
+        if (m_useOpenMP)
+        {
+            #pragma omp parallel for
+            for (int i = 0; i < static_cast<int>(joints.size()); ++i)
+                joints[i]->lambda = x.segment(joints[i]->idx, joints[i]->dim);
+
+            #pragma omp parallel for
+            for (int i = 0; i < static_cast<int>(contacts.size()); ++i)
+                contacts[i]->lambda = x.segment(contacts[i]->idx, 3);
+        }
+        else
+#endif
+        {
+            for (Joint *j : joints)
+                j->lambda = x.segment(j->idx, j->dim);
+
+            for (Contact *c : contacts)
+                c->lambda = x.segment(c->idx, 3);
+        }
+        return;
     }
 
-    // Early exit for trivial case
-    if (rTr < tolerance) {
+    // This regularization factor can be used to help stabilize the solver for larger contact sets
+    // We'll comment it out since it's not used currently but might be useful in the future
+    // const float regFactor = 1.0f + 1e-4f * std::min(static_cast<float>(contacts.size()), 100.0f);
+
+    for (int iter = 0; iter < m_maxIter && rsnew > tolerance; ++iter)
+    {
+        computeAx(joints, contacts, p, Ax, m_useOpenMP);
+        float alpha = rsold / (p.dot(Ax));
+
+        x = x + alpha * p;
+
+        // Project contact constraints
+        projectContactConstraints(contacts, x, m_useOpenMP);
+
+        // Recompute residual directly for better numerical stability
+        computeAx(joints, contacts, x, Ax, m_useOpenMP);
+        r = b - Ax;
+
+        rsnew = r.dot(r);
+
+        float beta = rsnew / rsold;
+        p = r + beta * p;
+        rsold = rsnew;
+    }
+
+    // Store the solution in the joint and contact lambdas
+#ifdef USE_OPENMP
+    if (m_useOpenMP)
+    {
+        #pragma omp parallel for
+        for (int i = 0; i < static_cast<int>(joints.size()); ++i)
+            joints[i]->lambda = x.segment(joints[i]->idx, joints[i]->dim);
+
+        #pragma omp parallel for
+        for (int i = 0; i < static_cast<int>(contacts.size()); ++i)
+            contacts[i]->lambda = x.segment(contacts[i]->idx, 3);
+    }
+    else
+#endif
+    {
         for (Joint *j : joints)
             j->lambda = x.segment(j->idx, j->dim);
 
         for (Contact *c : contacts)
             c->lambda = x.segment(c->idx, 3);
-        return;
     }
-
-    for (int iter = 0; iter < adjustedMaxIter; ++iter)
-    {
-        // Project contacts periodically during iteration to maintain constraint satisfaction
-        if (iter % 5 == 0 && !contacts.empty()) {
-            projectContactConstraints(contacts, x);
-            // Recompute residual after projection
-            computeAx(joints, contacts, x, Ax);
-            r = b - Ax;
-            p = r;
-            rTr = r.dot(r);
-        }
-
-        computeAx(joints, contacts, p, Ap);
-        float pAp = p.dot(Ap);
-
-        // Regularization for numerical stability
-        pAp = std::max(pAp, 1e-14f * rTr);
-
-        const float alpha = rTr / pAp;
-        x += alpha * p;
-
-        // Project constraints for contacts
-        projectContactConstraints(contacts, x);
-
-        // Recompute residual after projection
-        if ((iter + 1) % 5 == 0 || iter >= adjustedMaxIter - 2) {
-            computeAx(joints, contacts, x, Ax);
-            r = b - Ax;
-        } else {
-            r -= alpha * Ap; // Incremental update for performance
-        }
-
-        float rTrNext = r.dot(r);
-
-        // Prevent stagnation by checking progress
-        if (rTrNext < tolerance || rTrNext > 0.99f * rTr) {
-            break;
-        }
-
-        const float beta = rTrNext / rTr;
-        p = r + beta * p;
-        rTr = rTrNext;
-
-        // Restart if convergence stalls
-        if (iter % 20 == 19) {
-            p = r; // Reset search direction
-        }
-    }
-
-    // Store the solution in the joint and contact lambdas
-    for (Joint *j : joints)
-        j->lambda = x.segment(j->idx, j->dim);
-
-    for (Contact *c : contacts)
-        c->lambda = x.segment(c->idx, 3);
 }

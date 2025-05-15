@@ -32,6 +32,17 @@ public:
         }
     };
 
+    enum class LogOption {
+        HIT_COUNTS,
+        TANGENT_DIRECTIONS
+    };
+
+
+    static void setLoggingEnabled(bool enabled);
+    static void setLogPath(const std::string& path);
+    static bool isLogOptionEnabled(LogOption option);
+    static void setLogOptionEnabled(LogOption option, bool enabled);
+
     // Initialize the tracking system
     static void initialize();
 
@@ -66,4 +77,10 @@ private:
     static std::map<int, FaceHitData> s_bodyFaceHits;
     static bool s_visualizationEnabled;
     static bool s_tangentVisualizationEnabled;
+
+    static bool s_loggingEnabled;
+    static std::string s_logPath;
+    static std::map<LogOption, bool> s_logOptions;
+
+
 };

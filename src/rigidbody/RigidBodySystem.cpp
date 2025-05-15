@@ -107,6 +107,9 @@ RigidBodySystem::RigidBodySystem()
  , m_solverIter(10)
  , m_integrationMethod(IntegrationMethod::EXPLICIT_EULER)
  , m_useGraphColoring(true)
+ , m_useOpenMP(true)
+ , m_useSolverOpenMP(true)
+ , m_useCollisionOpenMP(true)
 {
     m_collisionDetect = std::make_unique<CollisionDetect>(this);
 
@@ -134,7 +137,7 @@ void RigidBodySystem::addJoint(Joint*  j)    {
 void RigidBodySystem::step(float dt)
 {
 #ifdef USE_OPENMP
-    #pragma omp parallel for if(useOpenMP && m_bodies.size() > 16)
+    #pragma omp parallel for if(m_useOpenMP && m_bodies.size() > 16)
 #endif
     for (size_t i = 0; i < m_bodies.size(); ++i) {
         auto b = m_bodies[i];
@@ -151,6 +154,9 @@ void RigidBodySystem::step(float dt)
 
     m_collisionDetect->clear();
     if (m_collisionsEnabled) {
+        // Pass OpenMP flag to collision detection system
+        m_collisionDetect->setUseOpenMP(m_useCollisionOpenMP);
+
         m_collisionDetect->detectCollisions();
         m_collisionDetect->computeContactJacobians();
 
@@ -197,7 +203,7 @@ void RigidBodySystem::step(float dt)
     if (m_useGraphColoring && !m_joints.empty()) {
         int numColors = m_bodies.empty() ? 0 : m_bodies[0]->numColors;
         for (int color = 0; color < numColors; ++color) {
-            #pragma omp parallel for if(useOpenMP)
+            #pragma omp parallel for if(m_useOpenMP)
             for (size_t i = 0; i < m_joints.size(); ++i) {
                 Joint* j = m_joints[i];
                 bool process = (j->body0 && j->body0->color == color)
@@ -208,7 +214,7 @@ void RigidBodySystem::step(float dt)
             }
         }
     } else {
-        #pragma omp parallel for if(useOpenMP && m_joints.size() > 16)
+        #pragma omp parallel for if(m_useOpenMP && m_joints.size() > 16)
         for (auto& j : m_joints) {
             j->computeJacobian();
         }
@@ -220,7 +226,7 @@ void RigidBodySystem::step(float dt)
 #endif
 
 #ifdef USE_OPENMP
-    #pragma omp parallel for if(useOpenMP && m_bodies.size() > 16)
+    #pragma omp parallel for if(m_useOpenMP && m_bodies.size() > 16)
 #endif
     for (size_t i = 0; i < m_bodies.size(); ++i) {
         auto b = m_bodies[i];
@@ -231,7 +237,7 @@ void RigidBodySystem::step(float dt)
     calcConstraintForces(dt);
 
     // Create and use an integrator based on the selected method
-    auto integrator = createIntegrator(m_integrationMethod);
+    auto integrator = createIntegrator(m_integrationMethod, m_useOpenMP);
     integrator->integrate(*this, dt);
 }
 
@@ -251,7 +257,7 @@ void RigidBodySystem::computeInertias() {
 
         // Process each color group in sequence
         for (int color = 0; color < numColors; ++color) {
-            #pragma omp parallel for if(useOpenMP)
+            #pragma omp parallel for if(m_useOpenMP)
             for (size_t i = 0; i < m_bodies.size(); ++i) {
                 if (m_bodies[i]->color == color) {
                     m_bodies[i]->updateInertiaMatrix();
@@ -259,7 +265,7 @@ void RigidBodySystem::computeInertias() {
             }
         }
     } else {
-        #pragma omp parallel for if(useOpenMP && m_bodies.size() > 16)
+        #pragma omp parallel for if(m_useOpenMP && m_bodies.size() > 16)
         for (size_t i = 0; i < m_bodies.size(); ++i)
             m_bodies[i]->updateInertiaMatrix();
     }
@@ -279,6 +285,10 @@ std::vector<Contact*>& RigidBodySystem::getContacts() {
 void RigidBodySystem::calcConstraintForces(float dt) {
     int idx = static_cast<int>(m_solverType);
     s_solvers[idx]->setMaxIter(m_solverIter);
+
+    // Pass OpenMP flag to the solver
+    s_solvers[idx]->setUseOpenMP(m_useSolverOpenMP);
+
     s_solvers[idx]->solve(dt);
 
 #ifdef USE_OPENMP
@@ -287,7 +297,7 @@ void RigidBodySystem::calcConstraintForces(float dt) {
 
         // Process each color group in sequence
         for (int color = 0; color < numColors; ++color) {
-            #pragma omp parallel for if(useOpenMP)
+            #pragma omp parallel for if(m_useSolverOpenMP)
             for (size_t i = 0; i < m_joints.size(); ++i) {
                 Joint* j = m_joints[i];
                 bool processBody0 = j->body0 && j->body0->color == color;
@@ -308,7 +318,7 @@ void RigidBodySystem::calcConstraintForces(float dt) {
             }
         }
     } else {
-        #pragma omp parallel for if(useOpenMP && m_joints.size() > 16)
+        #pragma omp parallel for if(m_useSolverOpenMP && m_joints.size() > 16)
         for (auto j : m_joints) {
             Eigen::Vector6f f0 = j->J0.transpose() * j->lambda / dt;
             Eigen::Vector6f f1 = j->J1.transpose() * j->lambda / dt;
@@ -339,7 +349,7 @@ void RigidBodySystem::calcConstraintForces(float dt) {
 
         // Process each color group in sequence
         for (int color = 0; color < numColors; ++color) {
-            #pragma omp parallel for if(useOpenMP)
+            #pragma omp parallel for if(m_useSolverOpenMP)
             for (size_t i = 0; i < contacts.size(); ++i) {
                 Contact* c = contacts[i];
                 bool processBody0 = c->body0 && c->body0->color == color && !c->body0->fixed;
@@ -360,7 +370,7 @@ void RigidBodySystem::calcConstraintForces(float dt) {
             }
         }
     } else {
-        #pragma omp parallel for if(useOpenMP && contacts.size() > 16)
+        #pragma omp parallel for if(m_useSolverOpenMP && contacts.size() > 16)
         for (auto c : contacts) {
             Eigen::Vector6f f0 = c->J0.transpose() * c->lambda / dt;
             Eigen::Vector6f f1 = c->J1.transpose() * c->lambda / dt;
@@ -395,3 +405,33 @@ void RigidBodySystem::calcConstraintForces(float dt) {
     }
 #endif
 }
+
+// void RigidBodySystem::setNewtonMaxIterations(int iterations) {
+//     // Find the Newton integrator and set the parameter
+//     if (m_integrationMethod == IntegrationMethod::NEWTON) {
+//         auto* newton = dynamic_cast<Newton*>(m_integrator.get());
+//         if (newton) {
+//             newton->setMaxIterations(iterations);
+//         }
+//     }
+// }
+//
+// void RigidBodySystem::setNewtonTolerance(float tolerance) {
+//     // Find the Newton integrator and set the parameter
+//     if (m_integrationMethod == IntegrationMethod::NEWTON) {
+//         auto* newton = dynamic_cast<Newton*>(m_integrator.get());
+//         if (newton) {
+//             newton->setTolerance(tolerance);
+//         }
+//     }
+// }
+//
+// void RigidBodySystem::setNewtonDamping(float damping) {
+//     // Find the Newton integrator and set the parameter
+//     if (m_integrationMethod == IntegrationMethod::NEWTON) {
+//         auto* newton = dynamic_cast<Newton*>(m_integrator.get());
+//         if (newton) {
+//             newton->setDamping(damping);
+//         }
+//     }
+// }

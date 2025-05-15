@@ -11,7 +11,7 @@
 void ExplicitEuler::integrate(RigidBodySystem& sys, float dt) {
     auto& bodies = sys.getBodies();
     bool useColor = sys.getUseGraphColoring();
-    bool useOpenMP = sys.getUseOpenMP();
+    bool useOpenMP = m_useOpenMP;
 
 #ifdef USE_OPENMP
     if (useColor && !bodies.empty()) {
