@@ -3,6 +3,7 @@
 #include "rigidbody/RigidBody.h"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <algorithm>
 
 #ifdef USE_OPENMP
 #include <omp.h>
@@ -13,10 +14,10 @@ void Newton::integrate(RigidBodySystem& sys, float dt) {
     bool useColor = sys.getUseGraphColoring();
     bool useOpenMP = m_useOpenMP;
 
-    // Newton method parameters
-    const int maxNewtonIter = 5;               // Maximum Newton iterations
-    const float newtonTolerance = 1e-6f;       // Convergence tolerance
-    const float dampingFactor = 0.98f;         // Implicit damping factor
+    // Get Newton method parameters from system
+    const int maxNewtonIter = sys.getMaxIterations();
+    const float newtonTolerance = sys.getTolerance();
+    const float dampingFactor = sys.getDamping();
 
     // Get system parameters
     const float maxLinearVel = sys.getMaxLinearVelocity();

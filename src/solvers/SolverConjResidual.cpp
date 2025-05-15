@@ -407,7 +407,7 @@ void SolverConjResidual::solve(float h)
     float initialResidual = r.dot(r);
 
     // Early exit if initial residual is already small
-    const float tolerance = 1e-8f * initialResidual;
+    const float tolerance = m_tolerance * initialResidual;
     if (zr < tolerance) {
         // Store zero solution
 #ifdef USE_OPENMP
@@ -450,13 +450,15 @@ void SolverConjResidual::solve(float h)
         r -= alpha * Ap;
 
         // Recompute z = A*r
-        computeAx(joints, contacts, r, z, m_useOpenMP);
+        if (iter > 0 && iter % m_restartInterval == 0) {
+            computeAx(joints, contacts, r, z, m_useOpenMP);
 
-        float zrNew = z.dot(r);
-        float beta = zrNew / zr;
+            float zrNew = z.dot(r);
+            float beta = zrNew / zr;
 
-        p = z + beta * p;
-        zr = zrNew;
+            p = z + beta * p;
+            zr = zrNew;
+        }
     }
 
     // Store the solution in the joint and contact lambdas

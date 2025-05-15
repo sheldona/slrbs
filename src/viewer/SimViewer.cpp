@@ -187,16 +187,67 @@ SimViewer::SimViewer()
       m_drawConstraints(true),
       m_selectedScenario(-1),
       m_selectedBodyIndex(-1),
-      m_showContactHits(true),
-      m_showContactTangents(true),
+      m_showContactHits(false),
+      m_showContactTangents(false),
       m_enableOpenMP(true),
-      m_enableSolverOpenMP(true)  // Initialize the new member variable
+      m_enableSolverOpenMP(true),
+      m_faceTrackerLogging(false),
+      m_faceTrackerLogPath("contact_logs"),
+      m_contactVisMode(FaceContactTracker::VisualizationMode::COLOR_GRADIENT),
+      m_tangentVisMode(FaceContactTracker::TangentVisualizationMode::ARROWS),
+      m_hitThreshold(50.0f),
+      m_visualizationScale(1.0f),
+      m_pointRadius(0.005f),
+      m_vectorScale(1.0f),
+      m_blendWithOriginalColor(true),
+      m_showMaxHitLabels(false),
+      m_enableHitDecay(false),
+      m_hitDecayRate(0.05f)
 {
     m_resetState = make_unique<RigidBodySystemState>(*m_rigidBodySystem);
 
     // Apply OpenMP settings
     m_rigidBodySystem->setUseOpenMP(m_enableOpenMP);
     m_rigidBodySystem->setUseSolverOpenMP(m_enableSolverOpenMP);
+
+    // Initialize solver parameters from system
+    m_bppStabilization = m_rigidBodySystem->getBoxBPPStabilization();
+    m_bppPivotTolerance = m_rigidBodySystem->getBoxBPPPivotTolerance();
+    m_bppMaxIterations = m_rigidBodySystem->getBoxBPPMaxIterations();
+
+    m_pgsStabilizationFactor = m_rigidBodySystem->getBoxPGSStabilizationFactor();
+
+    m_conjTolerance = m_rigidBodySystem->getConjTolerance();
+    m_conjRestartInterval = m_rigidBodySystem->getConjRestartInterval();
+
+    m_pgssmSubIter = m_rigidBodySystem->getPGSSMSubIterations();
+    m_pgssmGamma = m_rigidBodySystem->getPGSSMGamma();
+
+    m_newtonMaxIter = m_rigidBodySystem->getMaxIterations();
+    m_newtonTolerance = m_rigidBodySystem->getTolerance();
+    m_newtonDamping = m_rigidBodySystem->getDamping();
+
+    m_proximalAbsTol = 1e-5f;
+    m_proximalRelTol = 1e-5f;
+
+    // Initialize FaceContactTracker parameters
+    FaceContactTracker::VisualizationParams visParams;
+    visParams.mode = m_contactVisMode;
+    visParams.tangentMode = m_tangentVisMode;
+    visParams.hitCountThreshold = static_cast<int>(m_hitThreshold);
+    visParams.visualScale = m_visualizationScale;
+    visParams.pointRadius = m_pointRadius;
+    visParams.vectorScale = m_vectorScale;
+    visParams.blendWithOriginalColor = m_blendWithOriginalColor;
+    visParams.showMaxHitLabels = m_showMaxHitLabels;
+    visParams.enableHitDecay = m_enableHitDecay;
+    visParams.hitDecayRate = m_hitDecayRate;
+    FaceContactTracker::setVisParams(visParams);
+
+    FaceContactTracker::LoggingParams logParams;
+    logParams.enabled = m_faceTrackerLogging;
+    logParams.logPath = m_faceTrackerLogPath;
+    FaceContactTracker::setLogParams(logParams);
 
     refreshScenariosList();
     reset();
@@ -344,6 +395,7 @@ void SimViewer::drawGUI()
         ImGui::Checkbox("Show contact tangents", &m_showContactTangents);
         FaceContactTracker::setTangentVisualizationEnabled(m_showContactTangents);
         ImGui::Separator();
+        drawContactVisualizationUI();
         // ImGui::Text("Contact Logging");
 
         // if (ImGui::Checkbox("Enable contact logging", &m_faceTrackerLogging)) {
@@ -480,95 +532,22 @@ void SimViewer::drawGUI()
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Max angular speed clamp.");
         }
 
+        if (m_rigidBodySystem->getIntegrationMethod() == IntegrationMethod::NEWTON) {
+            ImGui::Separator();
+            ImGui::Text("Newton Integrator Settings");
 
-        // if (m_rigidBodySystem->getIntegrationMethod() == IntegrationMethod::NEWTON) {
-        //     ImGui::Separator();
-        //     ImGui::Text("Newton Integrator Settings");
-        //
-        //     if (ImGui::SliderInt("Newton Max Iterations", &m_newtonMaxIter, 1, 20))
-        //         // Set the parameter in the Newton integrator
-        //             m_rigidBodySystem->setNewtonMaxIterations(m_newtonMaxIter);
-        //
-        //     if (ImGui::SliderFloat("Newton Tolerance", &m_newtonTolerance, 1e-10f, 1e-2f, "%.8f"))
-        //         m_rigidBodySystem->setNewtonTolerance(m_newtonTolerance);
-        //
-        //     if (ImGui::SliderFloat("Newton Damping", &m_newtonDamping, 0.0f, 1.0f, "%.3f"))
-        //         m_rigidBodySystem->setNewtonDamping(m_newtonDamping);
-        // }
+            m_newtonMaxIter = m_rigidBodySystem->getMaxIterations();
+            if (ImGui::SliderInt("Newton Max Iterations", &m_newtonMaxIter, 1, 20))
+                m_rigidBodySystem->setNewtonMaxIterations(m_newtonMaxIter);
 
-        // if (m_rigidBodySystem->getSolverType() == SolverType::PROXIMAL) {
-        //     ImGui::Separator();
-        //     ImGui::Text("Proximal Solver Settings");
-        //
-        //     if (ImGui::SliderFloat("Absolute Tolerance", &m_proximalAbsTol, 1e-10f, 1e-2f, "%.8f"))
-        //         m_rigidBodySystem->setProximalAbsTolerance(m_proximalAbsTol);
-        //
-        //     if (ImGui::SliderFloat("Relative Tolerance", &m_proximalRelTol, 1e-10f, 1e-2f, "%.8f"))
-        //         m_rigidBodySystem->setProximalRelTolerance(m_proximalRelTol);
-        //
-        //     if (ImGui::Checkbox("Enable Data Export", &m_proximalExportEnabled)) {
-        //         // Get the solver and set export enabled
-        //         SolverProximal* proxSolver = static_cast<SolverProximal*>(m_rigidBodySystem->getProximalSolver());
-        //         if (proxSolver) {
-        //             proxSolver->enableDataExport(m_proximalExportEnabled);
-        //         }
-        //     }
-        //
-        //     if (m_proximalExportEnabled) {
-        //         char pathBuf[256];
-        //         strcpy(pathBuf, m_proximalExportPath.c_str());
-        //         if (ImGui::InputText("Export Path", pathBuf, sizeof(pathBuf))) {
-        //             m_proximalExportPath = pathBuf;
-        //             SolverProximal* proxSolver = static_cast<SolverProximal*>(m_rigidBodySystem->getProximalSolver());
-        //             if (proxSolver) {
-        //                 proxSolver->setExportPath(m_proximalExportPath);
-        //             }
-        //         }
-        //
-        //         // Add checkboxes for individual log types
-        //         ImGui::Text("Log Types:");
-        //         SolverProximal* proxSolver = static_cast<SolverProximal*>(m_rigidBodySystem->getProximalSolver());
-        //         if (proxSolver) {
-        //             bool logMatrices = proxSolver->isLogEnabled(SolverProximal::LogType::MATRICES);
-        //             if (ImGui::Checkbox("Matrices", &logMatrices))
-        //                 proxSolver->setLogEnabled(SolverProximal::LogType::MATRICES, logMatrices);
-        //
-        //             bool logConstraints = proxSolver->isLogEnabled(SolverProximal::LogType::ACTIVE_CONSTRAINTS);
-        //             if (ImGui::Checkbox("Active Constraints", &logConstraints))
-        //                 proxSolver->setLogEnabled(SolverProximal::LogType::ACTIVE_CONSTRAINTS, logConstraints);
-        //
-        //             bool logResidual = proxSolver->isLogEnabled(SolverProximal::LogType::RESIDUAL);
-        //             if (ImGui::Checkbox("Residual", &logResidual))
-        //                 proxSolver->setLogEnabled(SolverProximal::LogType::RESIDUAL, logResidual);
-        //
-        //             bool logLcpError = proxSolver->isLogEnabled(SolverProximal::LogType::LCP_ERROR);
-        //             if (ImGui::Checkbox("LCP Error", &logLcpError))
-        //                 proxSolver->setLogEnabled(SolverProximal::LogType::LCP_ERROR, logLcpError);
-        //
-        //             bool logMatrixR = proxSolver->isLogEnabled(SolverProximal::LogType::MATRIX_R);
-        //             if (ImGui::Checkbox("Matrix R", &logMatrixR))
-        //                 proxSolver->setLogEnabled(SolverProximal::LogType::MATRIX_R, logMatrixR);
-        //
-        //             bool logPerformance = proxSolver->isLogEnabled(SolverProximal::LogType::PERFORMANCE);
-        //             if (ImGui::Checkbox("Performance", &logPerformance))
-        //                 proxSolver->setLogEnabled(SolverProximal::LogType::PERFORMANCE, logPerformance);
-        //         }
-        //     }
-        // }
+            m_newtonTolerance = m_rigidBodySystem->getTolerance();
+            if (ImGui::SliderFloat("Newton Tolerance", &m_newtonTolerance, 1e-10f, 1e-2f, "%.8f"))
+                m_rigidBodySystem->setNewtonTolerance(m_newtonTolerance);
 
-        // if (m_rigidBodySystem->getSolverType() == SolverType::CONJ_GRADIENT ||
-        //     m_rigidBodySystem->getSolverType() == SolverType::CONJ_RESIDUAL) {
-        //         ImGui::Separator();
-        //         ImGui::Text("Conjugate Method Settings");
-        //
-        //         float tolerance = m_rigidBodySystem->getConjTolerance();
-        //         if (ImGui::SliderFloat("Convergence Tolerance", &tolerance, 1e-10f, 1e-2f, "%.8f"))
-        //             m_rigidBodySystem->setConjTolerance(tolerance);
-        //
-        //         int restartInterval = m_rigidBodySystem->getConjRestartInterval();
-        //         if (ImGui::SliderInt("Restart Interval", &restartInterval, 0, 50))
-        //             m_rigidBodySystem->setConjRestartInterval(restartInterval);
-        // }
+            m_newtonDamping = m_rigidBodySystem->getDamping();
+            if (ImGui::SliderFloat("Newton Damping", &m_newtonDamping, 0.0f, 1.0f, "%.3f"))
+                m_rigidBodySystem->setNewtonDamping(m_newtonDamping);
+        }
 
         ImGui::Separator();
         ImGui::Text("Solver Type:");
@@ -581,7 +560,83 @@ void SimViewer::drawGUI()
         ImGui::SameLine();
         if (ImGui::RadioButton("Conj Residual", st==SolverType::CONJ_RESIDUAL)) m_rigidBodySystem->setSolverType(SolverType::CONJ_RESIDUAL);
         if (ImGui::RadioButton("Proximal", st==SolverType::PROXIMAL)) m_rigidBodySystem->setSolverType(SolverType::PROXIMAL);
+
+        ImGui::Separator();
+
+        SolverType currentSolverType = m_rigidBodySystem->getSolverType();
+
+        // BPP Solver settings
+        if (currentSolverType == SolverType::BPP) {
+            ImGui::Separator();
+            ImGui::Text("BPP Solver Settings");
+
+            m_bppStabilization = m_rigidBodySystem->getBoxBPPStabilization();
+            if (ImGui::SliderFloat("Stabilization", &m_bppStabilization, 1.0f, 1000.0f, "%.1f"))
+                m_rigidBodySystem->setBoxBPPStabilization(m_bppStabilization);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Controls constraint stabilization strength");
+
+            m_bppPivotTolerance = m_rigidBodySystem->getBoxBPPPivotTolerance();
+            if (ImGui::SliderFloat("Pivot Tolerance", &m_bppPivotTolerance, 1e-10f, 1e-2f, "%.8f"))
+                m_rigidBodySystem->setBoxBPPPivotTolerance(m_bppPivotTolerance);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Tolerance for pivoting operations");
+
+            m_bppMaxIterations = m_rigidBodySystem->getBoxBPPMaxIterations();
+            if (ImGui::SliderInt("BPP Max Iterations", &m_bppMaxIterations, 1, 200))
+                m_rigidBodySystem->setBoxBPPMaxIterations(m_bppMaxIterations);
+        }
+
+        // PGS Solver settings (BoxPGS)
+        if (currentSolverType == SolverType::PGS) {
+            ImGui::Separator();
+            ImGui::Text("PGS Solver Settings");
+
+            m_pgsStabilizationFactor = m_rigidBodySystem->getBoxPGSStabilizationFactor();
+            if (ImGui::SliderFloat("Stabilization Factor", &m_pgsStabilizationFactor, 0.0f, 1.0f, "%.3f"))
+                m_rigidBodySystem->setBoxPGSStabilizationFactor(m_pgsStabilizationFactor);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Baumgarte stabilization factor");
+        }
+
+        // Conjugate methods (Gradient and Residual)
+        if (currentSolverType == SolverType::CONJ_GRADIENT ||
+            currentSolverType == SolverType::CONJ_RESIDUAL) {
+            ImGui::Separator();
+            ImGui::Text("Conjugate Method Settings");
+
+            m_conjTolerance = m_rigidBodySystem->getConjTolerance();
+            if (ImGui::SliderFloat("Convergence Tolerance", &m_conjTolerance, 1e-10f, 1e-2f, "%.8f"))
+                m_rigidBodySystem->setConjTolerance(m_conjTolerance);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Convergence criteria for solver termination");
+
+            m_conjRestartInterval = m_rigidBodySystem->getConjRestartInterval();
+            if (ImGui::SliderInt("Restart Interval", &m_conjRestartInterval, 0, 50))
+                m_rigidBodySystem->setConjRestartInterval(m_conjRestartInterval);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("How often to restart the algorithm (0 = never)");
+        }
+
+        // PGSSM Solver
+        if (currentSolverType == SolverType::PGSSM) {
+            ImGui::Separator();
+            ImGui::Text("PGSSM Solver Settings");
+
+            m_pgssmSubIter = m_rigidBodySystem->getPGSSMSubIterations();
+            if (ImGui::SliderInt("Sub-iterations", &m_pgssmSubIter, 1, 20))
+                m_rigidBodySystem->setPGSSMSubIterations(m_pgssmSubIter);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Number of sub-iterations for active constraints");
+
+            m_pgssmGamma = m_rigidBodySystem->getPGSSMGamma();
+            if (ImGui::SliderFloat("Gamma", &m_pgssmGamma, 0.0f, 1.0f, "%.3f"))
+                m_rigidBodySystem->setPGSSMGamma(m_pgssmGamma);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Baumgarte stabilization parameter");
+        }
     }
+
     ImGui::PopItemWidth();
     ImGui::End();
 
@@ -1223,6 +1278,8 @@ void SimViewer::preStep(RigidBodySystem& system, float h) {
     auto& joints   = system.getJoints();
     auto& contacts = system.getContacts();
 
+    FaceContactTracker::update(h);
+
     // 1) Reset all geometric‐stiffness accumulators and damping
     for (auto* b : bodies) {
         b->clearGeometricStiffness();
@@ -1268,6 +1325,8 @@ void SimViewer::preStep(RigidBodySystem& system, float h) {
             }
         }
     }
+
+    FaceContactTracker::update(h);
 
     // 4) Fold geometric‐stiffness into each body's inertia before the solver
     for (auto* b : bodies) {
@@ -1423,4 +1482,170 @@ void SimViewer::showAllMeshAABBs() {
     auto* net = polyscope::registerCurveNetwork(netName, pts, edges);
     net->setRadius(0.002f);
   }
+}
+
+void SimViewer::drawContactVisualizationUI() {
+    // Only show advanced settings if the basic toggles are enabled
+    if (!m_showContactHits && !m_showContactTangents) return;
+
+    if (!ImGui::CollapsingHeader("Contact Visualization Settings", ImGuiTreeNodeFlags_DefaultOpen))
+        return;
+
+    ImGui::Separator();
+
+    // Visualization mode
+    static const char* visModes[] = {
+        "None", "Color Gradient", "Heat Map", "Custom Colormap"
+    };
+    int currentVisMode = static_cast<int>(m_contactVisMode);
+    if (ImGui::Combo("Visualization Mode", &currentVisMode, visModes, IM_ARRAYSIZE(visModes))) {
+        m_contactVisMode = static_cast<FaceContactTracker::VisualizationMode>(currentVisMode);
+        FaceContactTracker::setVisualizationMode(m_contactVisMode);
+    }
+
+    // Tangent visualization mode
+    if (m_showContactTangents) {
+        static const char* tangentModes[] = {
+            "None", "Arrows", "Streamlines", "Points"
+        };
+        int currentTangentMode = static_cast<int>(m_tangentVisMode);
+        if (ImGui::Combo("Tangent Mode", &currentTangentMode, tangentModes, IM_ARRAYSIZE(tangentModes))) {
+            m_tangentVisMode = static_cast<FaceContactTracker::TangentVisualizationMode>(currentTangentMode);
+            FaceContactTracker::setTangentVisualizationMode(m_tangentVisMode);
+        }
+    }
+
+    // Visualization parameters
+    ImGui::PushItemWidth(150);
+
+    if (ImGui::SliderFloat("Hit Threshold", &m_hitThreshold, 1.0f, 200.0f, "%.0f")) {
+        auto params = FaceContactTracker::getVisParams();
+        params.hitCountThreshold = static_cast<int>(m_hitThreshold);
+        FaceContactTracker::setVisParams(params);
+    }
+
+    if (ImGui::SliderFloat("Visual Scale", &m_visualizationScale, 0.1f, 5.0f, "%.2f")) {
+        auto params = FaceContactTracker::getVisParams();
+        params.visualScale = m_visualizationScale;
+        FaceContactTracker::setVisParams(params);
+    }
+
+    if (ImGui::SliderFloat("Point Radius", &m_pointRadius, 0.001f, 0.02f, "%.3f")) {
+        auto params = FaceContactTracker::getVisParams();
+        params.pointRadius = m_pointRadius;
+        FaceContactTracker::setVisParams(params);
+    }
+
+    if (ImGui::SliderFloat("Vector Scale", &m_vectorScale, 0.1f, 5.0f, "%.2f")) {
+        auto params = FaceContactTracker::getVisParams();
+        params.vectorScale = m_vectorScale;
+        FaceContactTracker::setVisParams(params);
+    }
+
+    if (ImGui::Checkbox("Blend with Original Color", &m_blendWithOriginalColor)) {
+        auto params = FaceContactTracker::getVisParams();
+        params.blendWithOriginalColor = m_blendWithOriginalColor;
+        FaceContactTracker::setVisParams(params);
+    }
+
+    if (ImGui::Checkbox("Show Max Hit Labels", &m_showMaxHitLabels)) {
+        auto params = FaceContactTracker::getVisParams();
+        params.showMaxHitLabels = m_showMaxHitLabels;
+        FaceContactTracker::setVisParams(params);
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Hit Decay Settings");
+
+    if (ImGui::Checkbox("Enable Hit Decay", &m_enableHitDecay)) {
+        auto params = FaceContactTracker::getVisParams();
+        params.enableHitDecay = m_enableHitDecay;
+        FaceContactTracker::setVisParams(params);
+    }
+
+    if (m_enableHitDecay) {
+        if (ImGui::SliderFloat("Decay Rate", &m_hitDecayRate, 0.01f, 1.0f, "%.2f")) {
+            auto params = FaceContactTracker::getVisParams();
+            params.hitDecayRate = m_hitDecayRate;
+            FaceContactTracker::setVisParams(params);
+        }
+    }
+
+    ImGui::PopItemWidth();
+
+    // Colors section
+    ImGui::Separator();
+    ImGui::Text("Colors");
+
+    auto params = FaceContactTracker::getVisParams();
+    float hitColor[3] = {params.hitColor.x(), params.hitColor.y(), params.hitColor.z()};
+    if (ImGui::ColorEdit3("Hit Color", hitColor)) {
+        params.hitColor = Eigen::Vector3f(hitColor[0], hitColor[1], hitColor[2]);
+        FaceContactTracker::setVisParams(params);
+    }
+
+    float tangentColor[3] = {params.tangentColor.x(), params.tangentColor.y(), params.tangentColor.z()};
+    if (ImGui::ColorEdit3("Tangent Color", tangentColor)) {
+        params.tangentColor = Eigen::Vector3f(tangentColor[0], tangentColor[1], tangentColor[2]);
+        FaceContactTracker::setVisParams(params);
+    }
+
+    float pointColor[3] = {params.pointColor.x(), params.pointColor.y(), params.pointColor.z()};
+    if (ImGui::ColorEdit3("Point Color", pointColor)) {
+        params.pointColor = Eigen::Vector3f(pointColor[0], pointColor[1], pointColor[2]);
+        FaceContactTracker::setVisParams(params);
+    }
+
+    // Add a manual reset button for contact counters
+    ImGui::Separator();
+    if (ImGui::Button("Reset Contact Counters")) {
+        FaceContactTracker::reset();
+        // Re-initialize tracking for all bodies
+        for (auto* body : m_rigidBodySystem->getBodies()) {
+            FaceContactTracker::initializeForBody(body);
+        }
+    }
+
+    // Logging section
+    ImGui::Separator();
+    ImGui::Text("Contact Logging");
+
+    if (ImGui::Checkbox("Enable Logging", &m_faceTrackerLogging)) {
+        FaceContactTracker::setLoggingEnabled(m_faceTrackerLogging);
+    }
+
+    if (m_faceTrackerLogging) {
+        char pathBuf[256];
+        strcpy(pathBuf, m_faceTrackerLogPath.c_str());
+        if (ImGui::InputText("Log Path", pathBuf, sizeof(pathBuf))) {
+            m_faceTrackerLogPath = pathBuf;
+            FaceContactTracker::setLogPath(m_faceTrackerLogPath);
+        }
+
+        ImGui::Text("Log Options:");
+
+        bool logHitCounts = FaceContactTracker::isLogOptionEnabled(FaceContactTracker::LogOption::HIT_COUNTS);
+        if (ImGui::Checkbox("Hit Counts", &logHitCounts))
+            FaceContactTracker::setLogOptionEnabled(FaceContactTracker::LogOption::HIT_COUNTS, logHitCounts);
+
+        bool logTangents = FaceContactTracker::isLogOptionEnabled(FaceContactTracker::LogOption::TANGENT_DIRECTIONS);
+        if (ImGui::Checkbox("Tangent Directions", &logTangents))
+            FaceContactTracker::setLogOptionEnabled(FaceContactTracker::LogOption::TANGENT_DIRECTIONS, logTangents);
+
+        bool logVelocities = FaceContactTracker::isLogOptionEnabled(FaceContactTracker::LogOption::IMPACT_VELOCITIES);
+        if (ImGui::Checkbox("Impact Velocities", &logVelocities))
+            FaceContactTracker::setLogOptionEnabled(FaceContactTracker::LogOption::IMPACT_VELOCITIES, logVelocities);
+
+        bool logEnergy = FaceContactTracker::isLogOptionEnabled(FaceContactTracker::LogOption::IMPACT_ENERGY);
+        if (ImGui::Checkbox("Impact Energy", &logEnergy))
+            FaceContactTracker::setLogOptionEnabled(FaceContactTracker::LogOption::IMPACT_ENERGY, logEnergy);
+
+        bool logTimestamps = FaceContactTracker::isLogOptionEnabled(FaceContactTracker::LogOption::IMPACT_TIMESTAMPS);
+        if (ImGui::Checkbox("Impact Timestamps", &logTimestamps))
+            FaceContactTracker::setLogOptionEnabled(FaceContactTracker::LogOption::IMPACT_TIMESTAMPS, logTimestamps);
+
+        if (ImGui::Button("Flush Logs Now")) {
+            FaceContactTracker::flushLogs();
+        }
+    }
 }

@@ -110,6 +110,9 @@ RigidBodySystem::RigidBodySystem()
  , m_useOpenMP(true)
  , m_useSolverOpenMP(true)
  , m_useCollisionOpenMP(true)
+ , m_boxPGSStabilizationFactor(0.3f)
+ , m_pgssmSubIterations(3)
+ , m_pgssmGamma(0.3f)
 {
     m_collisionDetect = std::make_unique<CollisionDetect>(this);
 
@@ -120,6 +123,11 @@ RigidBodySystem::RigidBodySystem()
     s_solvers[3] = new SolverPGSSM(this);
     s_solvers[4] = new SolverProximal(this);
     s_solvers[5] = new SolverBoxBPP(this);
+
+    // Initialize solver parameters
+    setBoxPGSStabilizationFactor(m_boxPGSStabilizationFactor);
+    setPGSSMSubIterations(m_pgssmSubIterations);
+    setPGSSMGamma(m_pgssmGamma);
 }
 
 RigidBodySystem::~RigidBodySystem() {
@@ -405,33 +413,284 @@ void RigidBodySystem::calcConstraintForces(float dt) {
     }
 #endif
 }
+// Newton integrator parameters
+void RigidBodySystem::setNewtonMaxIterations(int iters) {
+    if (iters < 1) {
+        m_maxIterations = 1;
+    } else {
+        m_maxIterations = iters;
+    }
+}
 
-// void RigidBodySystem::setNewtonMaxIterations(int iterations) {
-//     // Find the Newton integrator and set the parameter
-//     if (m_integrationMethod == IntegrationMethod::NEWTON) {
-//         auto* newton = dynamic_cast<Newton*>(m_integrator.get());
-//         if (newton) {
-//             newton->setMaxIterations(iterations);
-//         }
-//     }
-// }
-//
-// void RigidBodySystem::setNewtonTolerance(float tolerance) {
-//     // Find the Newton integrator and set the parameter
-//     if (m_integrationMethod == IntegrationMethod::NEWTON) {
-//         auto* newton = dynamic_cast<Newton*>(m_integrator.get());
-//         if (newton) {
-//             newton->setTolerance(tolerance);
-//         }
-//     }
-// }
-//
-// void RigidBodySystem::setNewtonDamping(float damping) {
-//     // Find the Newton integrator and set the parameter
-//     if (m_integrationMethod == IntegrationMethod::NEWTON) {
-//         auto* newton = dynamic_cast<Newton*>(m_integrator.get());
-//         if (newton) {
-//             newton->setDamping(damping);
-//         }
-//     }
-// }
+void RigidBodySystem::setNewtonTolerance(float tol) {
+    if (tol <= 0.0f) {
+        m_tolerance = 1e-6f;
+    } else {
+        m_tolerance = tol;
+    }
+}
+
+void RigidBodySystem::setNewtonDamping(float damping) {
+    if (damping < 0.0f || damping > 1.0f) {
+        m_damping = std::clamp(damping, 0.0f, 1.0f);
+    } else {
+        m_damping = damping;
+    }
+}
+
+// For Proximal solver
+void RigidBodySystem::setProximalAbsTolerance(float tol) {
+    if (m_solverType != SolverType::PROXIMAL) {
+        return;
+    }
+
+    SolverProximal* proximal = dynamic_cast<SolverProximal*>(s_solvers[static_cast<int>(SolverType::PROXIMAL)]);
+    if (proximal) {
+        proximal->setAbsoluteTolerance(tol);
+    }
+}
+
+void RigidBodySystem::setProximalRelTolerance(float tol) {
+    if (m_solverType != SolverType::PROXIMAL) {
+        return;
+    }
+
+    SolverProximal* proximal = dynamic_cast<SolverProximal*>(s_solvers[static_cast<int>(SolverType::PROXIMAL)]);
+    if (proximal) {
+        proximal->setRelativeTolerance(tol);
+    }
+}
+
+Solver* RigidBodySystem::getProximalSolver() {
+    return s_solvers[static_cast<int>(SolverType::PROXIMAL)];
+}
+
+// For conjugate gradient solvers
+void RigidBodySystem::setConjTolerance(float tol) {
+    if (tol <= 0.0f) {
+        tol = 1e-6f;
+    }
+
+    if (m_solverType == SolverType::CONJ_GRADIENT) {
+        SolverConjGradient* cg = dynamic_cast<SolverConjGradient*>(s_solvers[static_cast<int>(SolverType::CONJ_GRADIENT)]);
+        if (cg) {
+            cg->setTolerance(tol);
+        }
+    } else if (m_solverType == SolverType::CONJ_RESIDUAL) {
+        SolverConjResidual* cr = dynamic_cast<SolverConjResidual*>(s_solvers[static_cast<int>(SolverType::CONJ_RESIDUAL)]);
+        if (cr) {
+            cr->setTolerance(tol);
+        }
+    }
+}
+
+float RigidBodySystem::getConjTolerance() const {
+    if (m_solverType == SolverType::CONJ_GRADIENT) {
+        const SolverConjGradient* cg = dynamic_cast<const SolverConjGradient*>(s_solvers[static_cast<int>(SolverType::CONJ_GRADIENT)]);
+        if (cg) {
+            return cg->getTolerance();
+        }
+    } else if (m_solverType == SolverType::CONJ_RESIDUAL) {
+        const SolverConjResidual* cr = dynamic_cast<const SolverConjResidual*>(s_solvers[static_cast<int>(SolverType::CONJ_RESIDUAL)]);
+        if (cr) {
+            return cr->getTolerance();
+        }
+    }
+    return m_tolerance; // Default to system tolerance if solver-specific not available
+}
+
+void RigidBodySystem::setConjRestartInterval(int interval) {
+    if (interval < 1) {
+        interval = 1;
+    }
+
+    if (m_solverType == SolverType::CONJ_GRADIENT) {
+        SolverConjGradient* cg = dynamic_cast<SolverConjGradient*>(s_solvers[static_cast<int>(SolverType::CONJ_GRADIENT)]);
+        if (cg) {
+            cg->setRestartInterval(interval);
+        }
+    } else if (m_solverType == SolverType::CONJ_RESIDUAL) {
+        SolverConjResidual* cr = dynamic_cast<SolverConjResidual*>(s_solvers[static_cast<int>(SolverType::CONJ_RESIDUAL)]);
+        if (cr) {
+            cr->setRestartInterval(interval);
+        }
+    }
+}
+
+int RigidBodySystem::getConjRestartInterval() const {
+    if (m_solverType == SolverType::CONJ_GRADIENT) {
+        const SolverConjGradient* cg = dynamic_cast<const SolverConjGradient*>(s_solvers[static_cast<int>(SolverType::CONJ_GRADIENT)]);
+        if (cg) {
+            return cg->getRestartInterval();
+        }
+    } else if (m_solverType == SolverType::CONJ_RESIDUAL) {
+        const SolverConjResidual* cr = dynamic_cast<const SolverConjResidual*>(s_solvers[static_cast<int>(SolverType::CONJ_RESIDUAL)]);
+        if (cr) {
+            return cr->getRestartInterval();
+        }
+    }
+    return 10; // Default restart interval if not set
+}
+
+// Generic parameter setters
+void RigidBodySystem::setMaxIterations(int iterations) {
+    if (iterations < 1) {
+        m_maxIterations = 1;
+    } else {
+        m_maxIterations = iterations;
+    }
+}
+
+void RigidBodySystem::setTolerance(float tolerance) {
+    if (tolerance <= 0.0f) {
+        m_tolerance = 1e-6f;
+    } else {
+        m_tolerance = tolerance;
+    }
+}
+
+void RigidBodySystem::setDamping(float damping) {
+    if (damping < 0.0f || damping > 1.0f) {
+        m_damping = std::clamp(damping, 0.0f, 1.0f);
+    } else {
+        m_damping = damping;
+    }
+}
+
+// BoxBPP solver parameters
+void RigidBodySystem::setBoxBPPMaxIterations(int iters) {
+    if (iters < 1) {
+        m_boxBPPMaxIterations = 1;
+    } else {
+        m_boxBPPMaxIterations = iters;
+    }
+
+    // If BPP is the current solver, update it directly
+    if (m_solverType == SolverType::BPP) {
+        SolverBoxBPP* bpp = dynamic_cast<SolverBoxBPP*>(s_solvers[static_cast<int>(SolverType::BPP)]);
+        if (bpp) {
+            bpp->setMaxIter(m_boxBPPMaxIterations);
+        }
+    }
+}
+
+int RigidBodySystem::getBoxBPPMaxIterations() const {
+    if (m_solverType == SolverType::BPP) {
+        SolverBoxBPP* bpp = dynamic_cast<SolverBoxBPP*>(s_solvers[static_cast<int>(SolverType::BPP)]);
+        if (bpp) {
+            return bpp->getMaxIter();
+        }
+    }
+    return m_boxBPPMaxIterations;
+}
+
+void RigidBodySystem::setBoxBPPStabilization(float stabilization) {
+    if (stabilization <= 0.0f) {
+        m_boxBPPStabilization = 1.0f;
+    } else {
+        m_boxBPPStabilization = stabilization;
+    }
+
+    // If BPP is the current solver, update it directly
+    if (m_solverType == SolverType::BPP) {
+        SolverBoxBPP* bpp = dynamic_cast<SolverBoxBPP*>(s_solvers[static_cast<int>(SolverType::BPP)]);
+        if (bpp) {
+            bpp->setStabilization(m_boxBPPStabilization);
+        }
+    }
+}
+
+float RigidBodySystem::getBoxBPPStabilization() const {
+    return m_boxBPPStabilization;
+}
+
+void RigidBodySystem::setBoxBPPPivotTolerance(float tol) {
+    if (tol <= 0.0f) {
+        m_boxBPPPivotTolerance = 1e-5f;
+    } else {
+        m_boxBPPPivotTolerance = tol;
+    }
+
+    // If BPP is the current solver, update it directly
+    if (m_solverType == SolverType::BPP) {
+        SolverBoxBPP* bpp = dynamic_cast<SolverBoxBPP*>(s_solvers[static_cast<int>(SolverType::BPP)]);
+        if (bpp) {
+            bpp->setPivotTolerance(m_boxBPPPivotTolerance);
+        }
+    }
+}
+
+float RigidBodySystem::getBoxBPPPivotTolerance() const {
+    return m_boxBPPPivotTolerance;
+}
+
+// BoxPGS Solver parameters
+void RigidBodySystem::setBoxPGSStabilizationFactor(float factor) {
+    if (factor < 0.0f || factor > 1.0f) {
+        m_boxPGSStabilizationFactor = std::clamp(factor, 0.0f, 1.0f);
+    } else {
+        m_boxPGSStabilizationFactor = factor;
+    }
+
+    SolverBoxPGS* pgs = dynamic_cast<SolverBoxPGS*>(s_solvers[static_cast<int>(SolverType::PGS)]);
+    if (pgs) {
+        pgs->setStabilizationFactor(m_boxPGSStabilizationFactor);
+    }
+}
+
+float RigidBodySystem::getBoxPGSStabilizationFactor() const {
+    if (m_solverType == SolverType::PGS) {
+        const SolverBoxPGS* pgs = dynamic_cast<const SolverBoxPGS*>(s_solvers[static_cast<int>(SolverType::PGS)]);
+        if (pgs) {
+            return pgs->getStabilizationFactor();
+        }
+    }
+    return m_boxPGSStabilizationFactor;
+}
+
+// PGSSM Solver parameters
+void RigidBodySystem::setPGSSMSubIterations(int subIter) {
+    if (subIter < 1) {
+        m_pgssmSubIterations = 1;
+    } else {
+        m_pgssmSubIterations = subIter;
+    }
+
+    SolverPGSSM* pgssm = dynamic_cast<SolverPGSSM*>(s_solvers[static_cast<int>(SolverType::PGSSM)]);
+    if (pgssm) {
+        pgssm->setSubIterations(m_pgssmSubIterations);
+    }
+}
+
+int RigidBodySystem::getPGSSMSubIterations() const {
+    if (m_solverType == SolverType::PGSSM) {
+        const SolverPGSSM* pgssm = dynamic_cast<const SolverPGSSM*>(s_solvers[static_cast<int>(SolverType::PGSSM)]);
+        if (pgssm) {
+            return pgssm->getSubIterations();
+        }
+    }
+    return m_pgssmSubIterations;
+}
+
+void RigidBodySystem::setPGSSMGamma(float gamma) {
+    if (gamma < 0.0f || gamma > 1.0f) {
+        m_pgssmGamma = std::clamp(gamma, 0.0f, 1.0f);
+    } else {
+        m_pgssmGamma = gamma;
+    }
+
+    SolverPGSSM* pgssm = dynamic_cast<SolverPGSSM*>(s_solvers[static_cast<int>(SolverType::PGSSM)]);
+    if (pgssm) {
+        pgssm->setGamma(m_pgssmGamma);
+    }
+}
+
+float RigidBodySystem::getPGSSMGamma() const {
+    if (m_solverType == SolverType::PGSSM) {
+        const SolverPGSSM* pgssm = dynamic_cast<const SolverPGSSM*>(s_solvers[static_cast<int>(SolverType::PGSSM)]);
+        if (pgssm) {
+            return pgssm->getGamma();
+        }
+    }
+    return m_pgssmGamma;
+}

@@ -9,6 +9,13 @@ class RigidBody;
 class Contact : public Joint
 {
 public:
+    // Enum to control the contact model type
+    enum class ContactModel {
+        COULOMB,        // Standard Coulomb friction model
+        BOX,            // Box model approximation (default)
+        CONE            // Cone model with constraint manifold
+    };
+
     // Default constructor
     Contact();
 
@@ -66,9 +73,15 @@ public:
 
     // Static members for contact parameters
     static float mu;                  // Friction coefficient
-    static float restitutionThreshold;
+    static float restitutionThreshold; // Velocity threshold for restitution
     static float baumgarte;           // Baumgarte stabilization factor
     static float slop;                // Contact slop factor
+    static ContactModel model;        // Contact model type
+    static bool warmStarting;         // Enable warm starting
+    static float warmStartFactor;     // Factor for warm starting (0-1)
+    static float maxPenetration;      // Maximum allowed penetration
+    static float frictionTangentScale; // Scale factor for friction tangent
+    static bool useEnhancedFriction;  // Use enhanced friction model
 
     using JBlock          = Eigen::Matrix<float,3,6>;
     using JBlockTranspose = Eigen::Matrix<float,6,3>;

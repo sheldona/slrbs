@@ -383,7 +383,7 @@ void SolverConjGradient::solve(float h)
     float initialResidual = rsold;
 
     // Early exit if initial residual is already small
-    const float tolerance = 1e-8f * initialResidual;
+    const float tolerance = m_tolerance * initialResidual;
     if (rsold < tolerance) {
         // Store zero solution
 #ifdef USE_OPENMP
@@ -424,14 +424,16 @@ void SolverConjGradient::solve(float h)
         projectContactConstraints(contacts, x, m_useOpenMP);
 
         // Recompute residual directly for better numerical stability
-        computeAx(joints, contacts, x, Ax, m_useOpenMP);
-        r = b - Ax;
+        if (iter > 0 && iter % m_restartInterval == 0) {
+            computeAx(joints, contacts, x, Ax, m_useOpenMP);
+            r = b - Ax;
 
-        rsnew = r.dot(r);
+            rsnew = r.dot(r);
 
-        float beta = rsnew / rsold;
-        p = r + beta * p;
-        rsold = rsnew;
+            float beta = rsnew / rsold;
+            p = r + beta * p;
+            rsold = rsnew;
+        }
     }
 
     // Store the solution in the joint and contact lambdas

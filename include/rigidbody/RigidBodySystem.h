@@ -97,13 +97,16 @@ public:
     void setIntegratorType(IntegratorType type)         { m_integrationMethod = static_cast<IntegrationMethod>(type); }
     IntegratorType getIntegratorType() const            { return static_cast<IntegratorType>(m_integrationMethod); }
 
-    // Implicit‑Euler parameter controls
+    //-------------------------------------------------------------------------
+    // IMPLICIT EULER INTEGRATOR PARAMETERS
+    //-------------------------------------------------------------------------
     void  setImplicitDamping   (float d) { m_implicitDamping    = d; }
     float getImplicitDamping() const     { return m_implicitDamping; }
 
     void  setGyroscopicDamping (float d) { m_gyroDamping        = d; }
     float getGyroscopicDamping() const   { return m_gyroDamping; }
 
+    // Velocity limiting parameters (used by multiple integrators)
     void  setMaxLinearVelocity (float v) { m_maxLinearVelocity  = v; }
     float getMaxLinearVelocity() const   { return m_maxLinearVelocity; }
 
@@ -114,39 +117,91 @@ public:
     void setVelocityLimitingEnabled(bool e) { m_limitVelocities = e; }
     bool getVelocityLimitingEnabled() const { return m_limitVelocities; }
 
-    // Geometric stiffness damping controls
+    //-------------------------------------------------------------------------
+    // GEOMETRIC STIFFNESS PARAMETERS
+    //-------------------------------------------------------------------------
     void setGeometricStiffnessDampingEnabled(bool e) { m_enableGSDamping = e; }
     bool getGeometricStiffnessDampingEnabled() const { return m_enableGSDamping; }
 
     void setGeometricStiffnessAlpha(float a) { m_gsAlpha = a; }
     float getGeometricStiffnessAlpha() const { return m_gsAlpha; }
 
+    //-------------------------------------------------------------------------
+    // PARALLELIZATION SETTINGS
+    //-------------------------------------------------------------------------
     void setUseOpenMP(bool enable) { m_useOpenMP = enable; }
     bool getUseOpenMP() const { return m_useOpenMP; }
 
     void setUseSolverOpenMP(bool enable) { m_useSolverOpenMP = enable; }
     bool getUseSolverOpenMP() const { return m_useSolverOpenMP; }
+
     void setUseCollisionOpenMP(bool enable) { m_useCollisionOpenMP = enable; }
     bool getUseCollisionOpenMP() const { return m_useCollisionOpenMP; }
 
-    // void setNewtonMaxIterations(int iters);
-    // void setNewtonTolerance(float tol);
-    // void setNewtonDamping(float damping);
+    //-------------------------------------------------------------------------
+    // NEWTON INTEGRATOR PARAMETERS
+    //-------------------------------------------------------------------------
+    void setNewtonMaxIterations(int iters);
+    int getMaxIterations() const { return m_maxIterations; }
 
-    // // For Proximal solver
-    // void setProximalAbsTolerance(float tol);
-    // void setProximalRelTolerance(float tol);
-    // Solver* getProximalSolver();
-    //
-    // // For conjugate gradient solvers
-    // void setConjTolerance(float tol);
-    // float getConjTolerance() const;
-    // void setConjRestartInterval(int interval);
-    // int getConjRestartInterval() const;
+    void setNewtonTolerance(float tol);
+    float getTolerance() const { return m_tolerance; }
 
-    // void setMaxIterations(int iterations) { m_maxIterations = iterations; }
-    // void setTolerance(float tolerance) { m_tolerance = tolerance; }
-    // void setDamping(float damping) { m_damping = damping; }
+    void setNewtonDamping(float damping);
+    float getDamping() const { return m_damping; }
+
+    //-------------------------------------------------------------------------
+    // PROXIMAL SOLVER PARAMETERS
+    //-------------------------------------------------------------------------
+    void setProximalAbsTolerance(float tol);
+    void setProximalRelTolerance(float tol);
+    Solver* getProximalSolver();
+
+    //-------------------------------------------------------------------------
+    // CONJUGATE GRADIENT/RESIDUAL SOLVER PARAMETERS
+    //-------------------------------------------------------------------------
+    void setConjTolerance(float tol);
+    float getConjTolerance() const;
+
+    void setConjRestartInterval(int interval);
+    int getConjRestartInterval() const;
+
+    //-------------------------------------------------------------------------
+    // BOXED BPP SOLVER PARAMETERS
+    //-------------------------------------------------------------------------
+    void setBoxBPPMaxIterations(int iters);
+    int getBoxBPPMaxIterations() const;
+
+    void setBoxBPPStabilization(float stabilization);
+    float getBoxBPPStabilization() const;
+
+    void setBoxBPPPivotTolerance(float tol);
+    float getBoxBPPPivotTolerance() const;
+
+    //-------------------------------------------------------------------------
+    // BOXED PGS SOLVER PARAMETERS
+    //-------------------------------------------------------------------------
+    void setBoxPGSStabilizationFactor(float factor);
+    float getBoxPGSStabilizationFactor() const;
+
+    //-------------------------------------------------------------------------
+    // PGSSM SOLVER PARAMETERS
+    //-------------------------------------------------------------------------
+    void setPGSSMSubIterations(int subIter);
+    int getPGSSMSubIterations() const;
+
+    void setPGSSMGamma(float gamma);
+    float getPGSSMGamma() const;
+
+    //-------------------------------------------------------------------------
+    // GENERIC PARAMETER SETTERS (affects active solver/integrator)
+    //-------------------------------------------------------------------------
+    void setMaxIterations(int iterations);
+    void setTolerance(float tolerance);
+    void setDamping(float damping);
+
+
+
 
 private:
     // Internal pipeline methods
@@ -181,11 +236,25 @@ private:
     bool  m_enableGSDamping = false;  // enable geometric‑stiffness based damping
     float m_gsAlpha         = 0.0f;   // geometric stiffness coefficient
 
+    // Parallelization
     bool m_useOpenMP = true;
     bool m_useSolverOpenMP = true;
     bool m_useCollisionOpenMP = true;
 
-    int m_maxIterations = 10;
-    float m_tolerance = 1e-6f;
-    float m_damping = 0.5f;
+    // Newton and generic parameters
+    int m_maxIterations = 10;       // Max Newton iterations/generic iterations
+    float m_tolerance = 1e-6f;      // Newton convergence tolerance/generic tolerance
+    float m_damping = 0.5f;         // Newton damping factor/generic damping
+
+    // BoxBPP specific parameters
+    int m_boxBPPMaxIterations = 100;
+    float m_boxBPPStabilization = 250.0f;
+    float m_boxBPPPivotTolerance = 1e-5f;
+
+    // BoxPGS specific parameter
+    float m_boxPGSStabilizationFactor = 0.3f;
+
+    // PGSSM specific parameters
+    int m_pgssmSubIterations = 3;
+    float m_pgssmGamma = 0.3f;
 };

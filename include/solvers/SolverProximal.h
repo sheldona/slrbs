@@ -24,6 +24,13 @@ public:
     // Solve the contact impulse update for time step h
     void solve(float h) override;
 
+    // Tolerance settings
+    void setAbsoluteTolerance(float tol) { m_absTolerance = tol > 0.0f ? tol : 1e-5f; }
+    float getAbsoluteTolerance() const { return m_absTolerance; }
+
+    void setRelativeTolerance(float tol) { m_relTolerance = tol > 0.0f ? tol : 1e-5f; }
+    float getRelativeTolerance() const { return m_relTolerance; }
+
     // Enable global data export
     void enableDataExport(bool enable);
     // Set base directory for exported logs
@@ -43,6 +50,10 @@ public:
 private:
     // Initialize internal data logger (called on first solve)
     void initializeDataLogger(const std::string& name);
+
+    // Convergence tolerance parameters
+    float m_absTolerance = 1e-5f;  // Absolute convergence tolerance
+    float m_relTolerance = 1e-5f;  // Relative convergence tolerance
 
     bool m_exportEnabled = false;
     std::string m_exportBasePath = "./";

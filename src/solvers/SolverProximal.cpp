@@ -332,7 +332,7 @@ void SolverProximal::solve(float h) {
     std::vector<Eigen::VectorXf> w(N, Eigen::VectorXf::Zero(6));
     initializeR(A, R, nu, m_useOpenMP);
 
-    float absTol = 1e-5f, relTol = 1e-5f;
+    float absTol = m_absTolerance, relTol = m_relTolerance;
     int it = 0;
     float last = 0, cur = 0;
     for (it = 0; it < m_maxIter; ++it) {

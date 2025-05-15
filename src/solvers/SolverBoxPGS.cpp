@@ -25,10 +25,10 @@ namespace
 
     // Computes the right-hand side vector of the Schur complement system:
     //      b = -phi/h - J*vel - dt*JMinv*force
-    static inline void buildRHS(Joint* j, float h, Eigen::VectorXf& b)
+    static inline void buildRHS(Joint* j, float h, Eigen::VectorXf& b, float stabilizationFactor)
     {
         const float hinv = 1.0f / h;
-        const float gamma = 0.3f;
+        const float gamma = stabilizationFactor;
         const int dim = j->lambda.rows();
         b = -hinv * gamma * j->phi;
 
@@ -251,7 +251,7 @@ void SolverBoxPGS::solve(float h)
             for (int i = 0; i < numJoints; ++i)
             {
                 Joint* j = joints[i];
-                buildRHS(j, h, b[i]);
+                buildRHS(j, h, b[i], m_stabilizationFactor);
             }
         } else
 #endif
@@ -260,7 +260,7 @@ void SolverBoxPGS::solve(float h)
             for (int i = 0; i < numJoints; ++i)
             {
                 Joint* j = joints[i];
-                buildRHS(j, h, b[i]);
+                buildRHS(j, h, b[i], m_stabilizationFactor);
             }
         }
 
@@ -270,7 +270,7 @@ void SolverBoxPGS::solve(float h)
             for (int i = 0; i < numContacts; ++i)
             {
                 Contact* c = contacts[i];
-                buildRHS(c, h, b[i+numJoints]);
+                buildRHS(c, h, b[i+numJoints], m_stabilizationFactor);
                 c->lambda.setZero();
             }
         } else
@@ -280,7 +280,7 @@ void SolverBoxPGS::solve(float h)
             for (int i = 0; i < numContacts; ++i)
             {
                 Contact* c = contacts[i];
-                buildRHS(c, h, b[i+numJoints]);
+                buildRHS(c, h, b[i+numJoints], m_stabilizationFactor);
                 c->lambda.setZero();
             }
         }

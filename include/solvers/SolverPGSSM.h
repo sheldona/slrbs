@@ -35,6 +35,26 @@ public:
      */
     virtual void solve(float h) override;
 
+    /**
+     * Set the number of sub-iterations for active constraints
+     */
+    void setSubIterations(int subIter) { m_subIter = (subIter > 0) ? subIter : 1; }
+
+    /**
+     * Get the number of sub-iterations for active constraints
+     */
+    int getSubIterations() const { return m_subIter; }
+
+    /**
+     * Set the Baumgarte stabilization parameter
+     */
+    void setGamma(float gamma) { m_gamma = (gamma > 0.0f && gamma < 1.0f) ? gamma : 0.3f; }
+
+    /**
+     * Get the Baumgarte stabilization parameter
+     */
+    float getGamma() const { return m_gamma; }
+
 private:
     /**
      * Solves all joint constraints.
@@ -42,28 +62,28 @@ private:
      * @param numJoints The number of joints.
      */
     void solveJoints(std::vector<Joint*>& joints, int numJoints);
-    
+
     /**
      * Solves all contact constraints.
      * @param contacts The contact constraints.
      * @param numContacts The number of contacts.
      */
     void solveContacts(std::vector<Contact*>& contacts, int numContacts);
-    
+
     /**
      * Solves only active joint constraints.
      * @param joints The joint constraints.
      * @param activeIndices Indices of active joints.
      */
     void solveActiveJoints(std::vector<Joint*>& joints, const std::vector<int>& activeIndices);
-    
+
     /**
      * Solves only active contact constraints.
      * @param contacts The contact constraints.
      * @param activeIndices Indices of active contacts.
      */
     void solveActiveContacts(std::vector<Contact*>& contacts, const std::vector<int>& activeIndices);
-    
+
     /**
      * Updates the index sets for the active set strategy.
      * @param contacts The contact constraints.
@@ -71,14 +91,14 @@ private:
      * @param upperBound Output: indices of constraints at upper bound.
      * @param active Output: indices of active constraints.
      */
-    void updateIndexSets(std::vector<Contact*>& contacts, 
-                        std::vector<int>& lowerBound, 
-                        std::vector<int>& upperBound, 
+    void updateIndexSets(std::vector<Contact*>& contacts,
+                        std::vector<int>& lowerBound,
+                        std::vector<int>& upperBound,
                         std::vector<int>& active);
-    
+
     // Solver parameters
-    int m_subIter;       // Number of sub-iterations for active constraints
-    float m_gamma;       // Baumgarte stabilization parameter
+    int m_subIter = 3;       // Number of sub-iterations for active constraints
+    float m_gamma = 0.3f;    // Baumgarte stabilization parameter
     
     // Matrices and vectors used by the solver
     std::vector<Eigen::MatrixXf> Ajoint;      // System matrices for joints

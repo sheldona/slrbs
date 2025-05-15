@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <contact/FaceContactTracker.h>
 
 namespace polyscope {
     class SurfaceMesh;
@@ -65,6 +66,7 @@ private:
     void draw();
     void drawGUI();
     void drawColorDebugUI();
+    void drawContactVisualizationUI();
     // Pre-step callback with geometric stiffness support
     void preStep(RigidBodySystem& system, float h);
 
@@ -113,9 +115,10 @@ private:
     bool m_enableSolverOpenMP = true;
     bool m_enableOpenMP = true;
 
-    int m_newtonMaxIter = 5;
     float m_newtonTolerance = 1e-6f;
+    int   m_newtonMaxIter = 5;
     float m_newtonDamping = 0.98f;
+    bool  m_loggingEnabled = false;
 
     // Proximal solver parameters
     float m_proximalAbsTol = 1e-5f;
@@ -126,4 +129,59 @@ private:
     // FaceTracker logging
     bool m_faceTrackerLogging = false;
     std::string m_faceTrackerLogPath = "contact_logs";
+
+    float m_bppStabilization = 250.0f;
+    float m_bppPivotTolerance = 1e-5f;
+    int m_bppMaxIterations = 100;
+
+    // BoxPGS parameters
+    float m_pgsStabilizationFactor = 0.3f;
+
+    // Conjugate method parameters
+    float m_conjTolerance = 1e-6f;
+    int m_conjRestartInterval = 10;
+
+    // PGSSM parameters
+    int m_pgssmSubIter = 3;
+    float m_pgssmGamma = 0.3f;
+
+    float m_contactFriction = 0.8f;
+    float m_contactRestitutionThreshold = 0.5f;
+    float m_contactBaumgarte = 0.2f;
+    float m_contactSlop = 0.01f;
+
+    // FaceContactTracker parameters
+    bool m_contactTrackerEnabled = true;
+    bool m_contactTangentVisualizationEnabled = true;
+
+    // Contact parameters
+    bool m_contactWarmStarting = true;
+    float m_contactWarmStartFactor = 0.8f;
+    float m_contactMaxPenetration = 0.1f;
+    float m_contactFrictionTangentScale = 1.0f;
+    bool m_contactEnhancedFriction = false;
+    int m_contactModelIndex = 1; // 0: COULOMB, 1: BOX, 2: CONE
+
+    // Contact visualization/tracking parameters
+    bool m_contactTracking = true;
+    bool m_contactTangentVisualization = true;
+    int m_contactVisModeIndex = 1; // 0: NONE, 1: COLOR_GRADIENT, 2: HEAT_MAP, 3: CUSTOM
+    int m_contactTangentVisModeIndex = 1; // 0: NONE, 1: ARROWS, 2: STREAMLINES, 3: POINTS
+    int m_contactHitThreshold = 50;
+    bool m_contactHitDecay = false;
+    float m_contactHitDecayRate = 0.05f;
+    bool m_contactLogging = false;
+    char m_contactLogPath[256] = "contact_logs";
+    bool m_contactLogOptions[5] = {true, false, false, false, false};
+
+    FaceContactTracker::VisualizationMode m_contactVisMode;
+    FaceContactTracker::TangentVisualizationMode m_tangentVisMode;
+    float m_hitThreshold;
+    float m_visualizationScale;
+    float m_pointRadius;
+    float m_vectorScale;
+    bool m_blendWithOriginalColor;
+    bool m_showMaxHitLabels;
+    bool m_enableHitDecay;
+    float m_hitDecayRate;
 };

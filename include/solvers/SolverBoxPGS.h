@@ -16,4 +16,10 @@ public:
     // 
     virtual void solve(float h) override;
 
+    // Set stabilization factor for the Baumgarte term
+    void setStabilizationFactor(float factor) { m_stabilizationFactor = factor; }
+    float getStabilizationFactor() const { return m_stabilizationFactor; }
+
+private:
+    float m_stabilizationFactor = 0.3f; // Default stabilization factor
 };

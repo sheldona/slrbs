@@ -25,7 +25,7 @@ public:
 
     // Returns the max iterations.
     //
-    int getMaterIter() const { return m_maxIter; }
+    int getMaxIter() const { return m_maxIter; }
 
     // The method that solves for the constraint forces in @a m_rigidBodySystem.
     //

@@ -12,15 +12,6 @@
 
 namespace
 {
-    static const float stabilization = 250.0f;
-    static const float alpha = stabilization * 2.0f;
-    static const float beta = stabilization * stabilization * 2.0f;
-    static const float BARRIER_MU = 1e-3f;
-    static const float BARRIER_GAMMA = 0.5f;
-    static const float MIN_BARRIER_PARAM = 1e-8f;
-    static const float MAX_ITER_NEWTON = 5;
-    static const float NEWTON_TOLERANCE = 1e-6f;
-
     enum eIndexSet { kFree = 0, kLower, kUpper, kIgnore };
 
     static inline void multAndSub(const JBlock& G, const Eigen::Vector3f& x, const Eigen::Vector3f& y, const float a, Eigen::Ref<Eigen::VectorXf> b)
@@ -35,7 +26,7 @@ namespace
 
     // Update the box bounds, lower and upper, of the constraint impulses.
     // The value in Contact::lambda is used for updating the bounds.
-    static inline void updateBounds(std::vector<Contact*>& contacts, Eigen::VectorXf& lower, Eigen::VectorXf& upper, bool useOpenMP)
+    static inline void updateBounds(std::vector<Contact*>& contacts, Eigen::VectorXf& lower, Eigen::VectorXf& upper, bool useOpenMP, float stabilization)
     {
 #ifdef USE_OPENMP
         #pragma omp parallel for if(useOpenMP && contacts.size() > 16)
@@ -62,7 +53,7 @@ namespace
 
     // Build the rhs vector of the Schur complement linear system.
     static inline void buildRHS(const std::vector<Joint*>& joints, const std::vector<Contact*>& contacts,
-                              float h, Eigen::VectorXf& b, bool useOpenMP)
+                              float h, Eigen::VectorXf& b, bool useOpenMP, float stabilization, float alpha, float beta)
     {
         const float hinv = 1.0f / h;
 
@@ -171,7 +162,7 @@ namespace
 
     // Build the Schur complement system using the contact constraints.
     static inline void buildMatrix(const std::vector<Joint*>& joints, const std::vector<Contact*>& contacts,
-                                 float h, Eigen::MatrixXf& A, bool useOpenMP)
+                                 float h, Eigen::MatrixXf& A, bool useOpenMP, float stabilization, float alpha, float beta)
     {
         // Processing is mostly sequential due to matrix dependencies
         // But we could parallelize within joint/contact loops if needed
@@ -726,7 +717,12 @@ namespace
     }
 }
 
-SolverBoxBPP::SolverBoxBPP(RigidBodySystem* _rigidBodySystem) : Solver(_rigidBodySystem)
+SolverBoxBPP::SolverBoxBPP(RigidBodySystem* _rigidBodySystem)
+    : Solver(_rigidBodySystem)
+    , m_stabilization(250.0f)
+    , m_alpha(500.0f)
+    , m_beta(125000.0f)
+    , m_pivotTolerance(1e-5f)
 {
 }
 
@@ -760,7 +756,7 @@ void SolverBoxBPP::solve(float h)
         Eigen::VectorXf lower = Eigen::VectorXf::Constant(dim, -std::numeric_limits<float>::max());
         Eigen::VectorXf upper = Eigen::VectorXf::Constant(dim, std::numeric_limits<float>::max());
 
-        updateBounds(contacts, lower, upper, m_useOpenMP);
+        updateBounds(contacts, lower, upper, m_useOpenMP, m_stabilization);
 
         // Initialize the index set.
         // All variables are initially set to 'free'.
@@ -787,13 +783,13 @@ void SolverBoxBPP::solve(float h)
         }
 
         // Construct the lead matrix and rhs vector.
-        buildMatrix(joints, contacts, h, A, m_useOpenMP);
-        buildRHS(joints, contacts, h, b, m_useOpenMP);
+        buildMatrix(joints, contacts, h, A, m_useOpenMP, m_stabilization, m_alpha, m_beta);
+        buildRHS(joints, contacts, h, b, m_useOpenMP, m_stabilization, m_alpha, m_beta);
 
         // Perform an initial solve to update friction box bounds.
         solvePrincipalSubproblem(A, b, idx, lower, upper, x, m_useOpenMP);
         updateJointsContacts(x, joints, contacts, m_useOpenMP);
-        updateBounds(contacts, lower, upper, m_useOpenMP);
+        updateBounds(contacts, lower, upper, m_useOpenMP, m_stabilization);
         idx.setConstant(kFree);
 
         // Block pivoting iterations.
@@ -813,6 +809,6 @@ void SolverBoxBPP::solve(float h)
         }
 
         updateJointsContacts(x, joints, contacts, m_useOpenMP);
-        updateBounds(contacts, lower, upper, m_useOpenMP);
+        updateBounds(contacts, lower, upper, m_useOpenMP, m_stabilization);
     }
 }
