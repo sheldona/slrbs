@@ -38,6 +38,7 @@ private:
     void createMarbleBox();
     void createSphereOnBox();
     void createSwingingBox();
+    void createSwingingBoxesDistance();
     void createCylinderOnPlane();
     void createCarScene();
 

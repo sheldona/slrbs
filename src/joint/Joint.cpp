@@ -1,6 +1,10 @@
 #include "joint/Joint.h"
 #include "rigidbody/RigidBody.h"
 
+
+float Joint::k = 1000.0f;
+float Joint::b = 200.0f;
+
 Joint::Joint() :
     body0(nullptr), body1(nullptr), dim(0),
     r0(Eigen::Vector3f::Zero()), r1(Eigen::Vector3f::Zero()), q0(Eigen::Quaternionf::Identity()), q1(Eigen::Quaternionf::Identity())

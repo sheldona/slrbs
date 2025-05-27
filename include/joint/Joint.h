@@ -6,13 +6,16 @@
 
 class RigidBody;
 
-enum eConstraintType { kContact = 0, kSpherical, kHinge };
+enum eConstraintType { kContact = 0, kSpherical, kHinge, kDistance };
 
 // Joint class.
 //
 class Joint
 {
 public:
+
+    static float k;
+    static float b;
 
     // Constructor with all parameters.
     Joint(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _r0, const Eigen::Quaternionf& _q0, const Eigen::Vector3f& _r1, const Eigen::Quaternionf& _q1);

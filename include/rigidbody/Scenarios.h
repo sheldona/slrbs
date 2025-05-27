@@ -2,8 +2,9 @@
 
 #include "rigidbody/RigidBody.h"
 #include "rigidbody/RigidBodySystem.h"
-#include "joint/Spherical.h"
 #include "joint/Hinge.h"
+#include "joint/Spherical.h"
+#include "joint/Spring.h"
 #include "util/Types.h"
 #include "util/MeshAssets.h"
 
@@ -188,6 +189,10 @@ public:
         RigidBody* rfwheel = new RigidBody(1.0f, new Cylinder(0.2f, 0.5f), createCylinder(16, 0.5f, 0.2f));
         RigidBody* lrwheel = new RigidBody(1.0f, new Cylinder(0.2f, 0.5f), createCylinder(16, 0.5f, 0.2f));
         RigidBody* rrwheel = new RigidBody(1.0f, new Cylinder(0.2f, 0.5f), createCylinder(16, 0.5f, 0.2f));
+
+        RigidBody* lsteer = new RigidBody(1.0f, new Box({ 0.2f, 0.2f, 0.2f }), createBox({ 0.2f, 0.2f, 0.2f }) );
+        RigidBody* rsteer = new RigidBody(1.0f, new Box({ 0.2f, 0.2f, 0.2f }), createBox({ 0.2f, 0.2f, 0.2f }));
+
         chassis->x = { 0.0f, 0.5f, 0.0f };
         chassis->xdot = { 0.0f, 0.0f, -10.0f };
         lfwheel->x = { 1.0f, 0.5f, 1.5f };
@@ -198,6 +203,8 @@ public:
         rfwheel->q = Eigen::AngleAxisf(1.57079f, Eigen::Vector3f(0.0f, 0.0f, 1.0f));
         lrwheel->q = Eigen::AngleAxisf(1.57079f, Eigen::Vector3f(0.0f, 0.0f, 1.0f));
         rrwheel->q = Eigen::AngleAxisf(1.57079f, Eigen::Vector3f(0.0f, 0.0f, 1.0f));
+        rsteer->x = rfwheel->x;
+        lsteer->x = lfwheel->x;
   
         // Create a ground plane.
         RigidBody* plane = new RigidBody(1.0f, new Plane({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }), "");
@@ -205,18 +212,32 @@ public:
         plane->fixed = true;
 
         // Setup the vehicle joints/constraints.
-        Hinge* lfhinge = new Hinge(chassis, lfwheel,
+        Hinge* lfhinge_steer = new Hinge(chassis, lsteer,
             { 1.0f, 0.0f, 1.5f },
+            Eigen::Quaternionf(Eigen::AngleAxisf(1.57f, Eigen::Vector3f(0, 0, 1))),
+            { 0.0f, 0.0f, 0.0f },
+            Eigen::Quaternionf(Eigen::AngleAxisf(1.57f, Eigen::Vector3f(0, 0, 1)))
+        );
+
+        Hinge* rfhinge_steer = new Hinge(chassis, rsteer,
+            { -1.0f, 0.0f, 1.5f },
+            Eigen::Quaternionf(Eigen::AngleAxisf(1.57f, Eigen::Vector3f(0, 0, 1))),
+            { 0.0f, 0.0f, 0.0f },
+            Eigen::Quaternionf(Eigen::AngleAxisf(1.57f, Eigen::Vector3f(0, 0, 1)))//Eigen::Quaternionf(Eigen::AngleAxisf(1.57f, Eigen::Vector3f(0, 0, 1)))
+        );
+
+        Hinge* lfhinge = new Hinge(rsteer, rfwheel,
+            { 0.0f, 0.0f, 0.0f },
             Eigen::Quaternionf::Identity(),
             { 0.0f, 0.0f, 0.0f },
             Eigen::Quaternionf(Eigen::AngleAxisf(1.57f, Eigen::Vector3f(0, 0, 1)))
         );
 
-        Hinge* rfhinge = new Hinge(chassis, rfwheel,
-            { -1.0f, 0.0f, 1.5f },
+        Hinge* rfhinge = new Hinge(lsteer, lfwheel,
+            { 0.0f, 0.0f, 0.0f },
             Eigen::Quaternionf::Identity(),
             { 0.0f, 0.0f, 0.0f },
-            Eigen::Quaternionf(Eigen::AngleAxisf(1.57f, Eigen::Vector3f(0, 0, 1)))
+            Eigen::Quaternionf(Eigen::AngleAxisf(1.57f, Eigen::Vector3f(0, 0, 1)))//Eigen::Quaternionf(Eigen::AngleAxisf(1.57f, Eigen::Vector3f(0, 0, 1)))
         );
 
         Hinge* lrhinge = new Hinge(chassis, lrwheel,
@@ -238,12 +259,55 @@ public:
         rigidBodySystem.addBody(rfwheel);
         rigidBodySystem.addBody(lrwheel);
         rigidBodySystem.addBody(rrwheel);
+        rigidBodySystem.addBody(rsteer);
+        rigidBodySystem.addBody(lsteer);
         rigidBodySystem.addBody(plane);
 
         rigidBodySystem.addJoint(lfhinge);
         rigidBodySystem.addJoint(rfhinge);
         rigidBodySystem.addJoint(lrhinge);
         rigidBodySystem.addJoint(rrhinge);
+        rigidBodySystem.addJoint(lfhinge_steer);
+        rigidBodySystem.addJoint(rfhinge_steer);
+    }
+
+    // Box hanging from a box
+//
+    static void createSwingingBoxesDistance(RigidBodySystem& rigidBodySystem)
+    {
+        rigidBodySystem.clear();
+        polyscope::removeAllStructures();
+
+        std::cout << "Loading swinging boxes scenario (distance constraints)" << std::endl;
+
+        const int N = 2;
+
+        // Create a box.
+        const Eigen::Vector3f dim({ 1.0f, 1.0f, 1.0f });
+        RigidBody* topBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        topBox->x = { 0.0f, 1.5f * (float)N, 0.0f };
+        topBox->fixed = true;
+        rigidBodySystem.addBody(topBox);
+
+        const float l0 = 1.5f;
+        const Eigen::Vector3f dx(0.0f, l0, 0.0f);
+        RigidBody* parent = topBox;
+        for (int i = 0; i < N - 1; ++i)
+        {
+            // Create the next box in the chain.
+            RigidBody* nextBox = nullptr;
+            nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+            nextBox->x = parent->x - dx;
+
+            // Add a hinge between parent->nextBox
+            Joint* j = new Spring(parent, nextBox, -0.5f * dx, 0.5f * dx, l0);
+
+            // Add new box and hinge to the rigid body system.
+            rigidBodySystem.addBody(nextBox);
+            rigidBodySystem.addJoint(j);
+            parent = nextBox;
+        }
+
     }
 
 };

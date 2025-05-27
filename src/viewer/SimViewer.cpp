@@ -198,6 +198,8 @@ void SimViewer::drawGUI()
     ImGui::RadioButton("PGS", &(m_rigidBodySystem->solverId), 0);  ImGui::SameLine();
     ImGui::RadioButton("Conj. Gradient (NO CONTACT)", &(m_rigidBodySystem->solverId), 1);
     ImGui::RadioButton("Conj. Residual (NO CONTACT)", &(m_rigidBodySystem->solverId), 2);
+    ImGui::SliderFloat("Joint stiffness", &Joint::k, 0.0f, 1e5f, "%.0f");
+    ImGui::SliderFloat("Joint damping", &Joint::b, 0.0f, 1e4f, "%.0f");
     ImGui::PopItemWidth();
 
     if (ImGui::Checkbox("Enable collision detecton", &m_enableCollisions)) {
@@ -216,6 +218,9 @@ void SimViewer::drawGUI()
     }
     if (ImGui::Button("Swinging box")) {
         createSwingingBox();
+    }
+    if (ImGui::Button("Swinging box (distance)")) {
+        createSwingingBoxesDistance();
     }
     if (ImGui::Button("Cylinder on plane")) {
         createCylinderOnPlane();
@@ -294,6 +299,14 @@ void SimViewer::createSphereOnBox()
 void SimViewer::createSwingingBox()
 {
     Scenarios::createSwingingBoxes(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createSwingingBoxesDistance()
+{
+    Scenarios::createSwingingBoxesDistance(*m_rigidBodySystem);
     m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
