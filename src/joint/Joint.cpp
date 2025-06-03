@@ -2,8 +2,8 @@
 #include "rigidbody/RigidBody.h"
 
 
-float Joint::k = 1000.0f;
-float Joint::b = 200.0f;
+float Joint::k = 1e4f;
+float Joint::b = 1e2f;
 
 Joint::Joint() :
     body0(nullptr), body1(nullptr), dim(0),

@@ -1,4 +1,4 @@
-#include "joint/Spring.h"
+#include "joint/Distance.h"
 #include "rigidbody/RigidBody.h"
 
 namespace
@@ -7,12 +7,12 @@ namespace
 }
 
 
-Spring::Spring() : Joint()
+Distance::Distance() : Joint()
 {
 
 }
 
-Spring::Spring(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _r0, const Eigen::Vector3f& _r1, const float _l0) :
+Distance::Distance(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _r0, const Eigen::Vector3f& _r1, const float _l0) :
     Joint(_body0, _body1, _r0, Eigen::Quaternionf::Identity(), _r1, Eigen::Quaternionf::Identity()), l0(_l0)
 {
     dim = 1;
@@ -24,7 +24,7 @@ Spring::Spring(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _r0,
     lambda.setZero(1);
 }
 
-void Spring::computeJacobian()
+void Distance::computeJacobian()
 {
     static const Eigen::Matrix3f sEye = Eigen::Matrix3f::Identity();
     const Eigen::Vector3f rr0 = body0->q * r0;

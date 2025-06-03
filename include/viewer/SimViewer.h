@@ -39,6 +39,7 @@ private:
     void createSphereOnBox();
     void createSwingingBox();
     void createSwingingBoxesDistance();
+    void createSliderBox();
     void createCylinderOnPlane();
     void createCarScene();
 

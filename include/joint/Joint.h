@@ -6,7 +6,7 @@
 
 class RigidBody;
 
-enum eConstraintType { kContact = 0, kSpherical, kHinge, kDistance };
+enum eConstraintType { kContact = 0, kSpherical, kHinge, kPrismatic, kDistance };
 
 // Joint class.
 //

@@ -228,6 +228,9 @@ void SimViewer::drawGUI()
     if (ImGui::Button("Create car scene")) {
         createCarScene();
     }
+    if (ImGui::Button("Create slider box")) {
+        createSliderBox();
+    }
 
     ImGui::Text("Step time: %3.3f ms", m_dynamicsTime);
 
@@ -312,6 +315,14 @@ void SimViewer::createSwingingBoxesDistance()
     polyscope::resetScreenshotIndex();
 }
 
+void SimViewer::createSliderBox()
+{
+    Scenarios::createSliderBox(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
 void SimViewer::createCylinderOnPlane()
 {
     Scenarios::createCylinderOnPlane(*m_rigidBodySystem);
@@ -332,3 +343,4 @@ void SimViewer::preStep(std::vector<RigidBody*>& _bodies)
 {
     // do something useful here?
 }
+

@@ -4,7 +4,8 @@
 #include "rigidbody/RigidBodySystem.h"
 #include "joint/Hinge.h"
 #include "joint/Spherical.h"
-#include "joint/Spring.h"
+#include "joint/Distance.h"
+#include "joint/Prismatic.h"
 #include "util/Types.h"
 #include "util/MeshAssets.h"
 
@@ -271,8 +272,8 @@ public:
         rigidBodySystem.addJoint(rfhinge_steer);
     }
 
-    // Box hanging from a box
-//
+    // Boxes hanging from a static box
+    //
     static void createSwingingBoxesDistance(RigidBodySystem& rigidBodySystem)
     {
         rigidBodySystem.clear();
@@ -300,7 +301,7 @@ public:
             nextBox->x = parent->x - dx;
 
             // Add a hinge between parent->nextBox
-            Joint* j = new Spring(parent, nextBox, -0.5f * dx, 0.5f * dx, l0);
+            Joint* j = new Distance(parent, nextBox, -0.5f * dx, 0.5f * dx, l0);
 
             // Add new box and hinge to the rigid body system.
             rigidBodySystem.addBody(nextBox);
@@ -308,6 +309,31 @@ public:
             parent = nextBox;
         }
 
+    }
+
+    // One box sliding against another.
+    //
+    static void createSliderBox(RigidBodySystem& rigidBodySystem)
+    {
+        rigidBodySystem.clear();
+        polyscope::removeAllStructures();
+
+        std::cout << "Loading slider box scenario " << std::endl;
+
+        const Eigen::Vector3f dim({ 1.0f, 1.0f, 1.0f });
+        RigidBody* staticBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        staticBox->fixed = true;
+        rigidBodySystem.addBody(staticBox);
+
+        RigidBody* dynamicBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        rigidBodySystem.addBody(dynamicBox);
+        dynamicBox->q = Eigen::AngleAxisf(0.57,  Eigen::Vector3f({ 1.0f, 0.0f, 0.0f }));
+        dynamicBox->xdot = { -2.0f, 1.0f, -3.0f };
+        dynamicBox->omega = { 10.0f, 0.0f, 0.0f };
+
+        // Add a prismatic joint between static and dynamic boxes
+        Joint* j = new Prismatic(staticBox, dynamicBox, { 0.0f, 0.0f, 0.0f }, Eigen::Quaternionf::Identity(), { 0.0f, 0.0f, 0.0f }, Eigen::Quaternionf::Identity());
+        rigidBodySystem.addJoint(j);
     }
 
 };

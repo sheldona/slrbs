@@ -48,10 +48,12 @@ set(rigidbody_SOURCE src/rigidbody/RigidBody.cpp
 set(joint_HEADERS include/joint/Joint.h
                   include/joint/Distance.h 
 				  include/joint/Hinge.h
+				  include/joint/Prismatic.h
 				  include/joint/Spherical.h )
 set(joint_SOURCE src/joint/Joint.cpp
 			     src/joint/Distance.cpp
 				 src/joint/Hinge.cpp
+				 src/joint/Prismatic.cpp
 			     src/joint/Spherical.cpp )
 
 set(contact_HEADERS include/contact/Contact.h )
