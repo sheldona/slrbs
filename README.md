@@ -32,3 +32,14 @@ Eigen 3.x uses the [Mozilla Public License v2](3rdParty/Eigen3/include/eigen3/Ei
 
 Polyscope uses the [MIT License](3rdParty/polyscope/LICENSE).
 
+
+**BibTeX**
+
+```
+@misc{slrbs,
+  author = {Sheldon Andrews},
+  title = {Sheldon's Little Rigid-Body Simulator (SLRBS)},
+  year  = {2025},
+  url   = {https://github.com/sheldona/slrbs},
+}
+```
