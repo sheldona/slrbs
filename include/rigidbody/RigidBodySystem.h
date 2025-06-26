@@ -1,13 +1,13 @@
 #pragma once
 
+#include "contact/Contact.h"
+#include "joint/Joint.h"
 #include "util/Types.h"
 
 #include <memory>
 #include <vector>
 
-class Contact;
 class CollisionDetect;
-class Joint;
 class Solver;
 class RigidBody;
 
@@ -39,8 +39,8 @@ public:
     std::vector<RigidBody*>& getBodies() { return m_bodies; }
 
     // Accessors for the contact array.
-    const std::vector<Contact*>& getContacts() const;
-    std::vector<Contact*>& getContacts();
+    const std::vector<Contact>& getContacts() const;
+    std::vector<Contact>& getContacts();
 
     // Accessors for the joint array.
     const std::vector<Joint*>& getJoints() const;
@@ -60,6 +60,7 @@ private:
     std::vector<RigidBody*> m_bodies;
     std::vector<Joint*> m_joints;
     std::unique_ptr<CollisionDetect> m_collisionDetect;
+    std::vector<ContactState> m_contactState;
 
     bool m_collisionsEnabled;
 
@@ -69,6 +70,7 @@ private:
 
     // Compute the constraint forces.
     void calcConstraintForces(float dt);
+
 
     PreStepFunc m_preStepFunc;
     ResetFunc m_resetFunc;

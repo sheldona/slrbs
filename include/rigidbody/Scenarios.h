@@ -49,7 +49,7 @@ public:
         // Create the box to hold the marbles.
         const Eigen::Vector3f sideDim(Eigen::Vector3f(0.4f, 4.0f, 10.0f));
         const Eigen::Vector3f botDim(Eigen::Vector3f(10.0f, 0.4f, 10.0f));
-        RigidBody* body0 = new RigidBody(1.0f, new Box(sideDim), createBox(sideDim) );
+        RigidBody* body0 = new RigidBody(1.0f, new Box(sideDim), createBox(sideDim));
         RigidBody* body1 = new RigidBody(1.0f, new Box(sideDim), createBox(sideDim));
         RigidBody* body2 = new RigidBody(1.0f, new Box(sideDim), createBox(sideDim));
         RigidBody* body3 = new RigidBody(1.0f, new Box(sideDim), createBox(sideDim));
@@ -121,13 +121,13 @@ public:
         // Create a box.
         const Eigen::Vector3f dim({ 1.0f, 1.0f, 1.0f });
         RigidBody* topBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
-        topBox->x = { 0.0f, 1.5f*(float)N, 0.0f };
+        topBox->x = { 0.0f, 1.5f * (float)N, 0.0f };
         topBox->fixed = true;
         rigidBodySystem.addBody(topBox);
 
         const Eigen::Vector3f dx(0.0f, 1.5f, 0.0f);
         RigidBody* parent = topBox;
-        for (int i = 0; i < N-1; ++i)
+        for (int i = 0; i < N - 1; ++i)
         {
             // Create the next box in the chain.
             RigidBody* nextBox = nullptr;
@@ -165,7 +165,7 @@ public:
         cyl->q = Eigen::AngleAxisf(0.57f, Eigen::Vector3f(0.0f, 0.0f, 1.0f));
 
         // Create a ground plane.
-        RigidBody* plane = new RigidBody(1.0f, new Plane({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}), "");
+        RigidBody* plane = new RigidBody(1.0f, new Plane({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }), "");
         plane->x = { 0.0f, 0.0f, 0.0f };
         plane->fixed = true;
 
@@ -183,7 +183,7 @@ public:
         std::cout << "Loading car scenario." << std::endl;
 
         // Create a car.
-        RigidBody* chassis = new RigidBody(5.0f, new Box({ 2.0f, 0.5f, 3.0f }), createBox({ 2.0f, 0.5f, 3.0f }) );
+        RigidBody* chassis = new RigidBody(5.0f, new Box({ 2.0f, 0.5f, 3.0f }), createBox({ 2.0f, 0.5f, 3.0f }));
         RigidBody* lfwheel = new RigidBody(1.0f, new Cylinder(0.2f, 0.5f), createCylinder(16, 0.5f, 0.2f));
         RigidBody* rfwheel = new RigidBody(1.0f, new Cylinder(0.2f, 0.5f), createCylinder(16, 0.5f, 0.2f));
         RigidBody* lrwheel = new RigidBody(1.0f, new Cylinder(0.2f, 0.5f), createCylinder(16, 0.5f, 0.2f));
@@ -198,7 +198,7 @@ public:
         rfwheel->q = Eigen::AngleAxisf(1.57079f, Eigen::Vector3f(0.0f, 0.0f, 1.0f));
         lrwheel->q = Eigen::AngleAxisf(1.57079f, Eigen::Vector3f(0.0f, 0.0f, 1.0f));
         rrwheel->q = Eigen::AngleAxisf(1.57079f, Eigen::Vector3f(0.0f, 0.0f, 1.0f));
-  
+
         // Create a ground plane.
         RigidBody* plane = new RigidBody(1.0f, new Plane({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }), "");
         plane->x = { 0.0f, 0.0f, 0.0f };
@@ -245,5 +245,75 @@ public:
         rigidBodySystem.addJoint(lrhinge);
         rigidBodySystem.addJoint(rrhinge);
     }
+
+    // Box falling on a plane.
+    //
+    static void createBoxOnPlane(RigidBodySystem& rigidBodySystem)
+    {
+        rigidBodySystem.clear();
+        polyscope::removeAllStructures();
+
+        std::cout << "Loading box-on-plane scenario." << std::endl;
+
+        // Create a box.
+        const Eigen::Vector3f dim(1.0f, 1.0f, 1.0f);
+        RigidBody* bodyBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        bodyBox->x = { -1.0f, 2.0f, 0.0f };
+        bodyBox->xdot = 5.0f * Eigen::Vector3f(0.5f, -0.866f, 0.0f);
+        bodyBox->q = Eigen::AngleAxisf(-0.5236, Eigen::Vector3f(0, 0, 1));
+
+        // Create a plane that will act as the ground.
+        const Eigen::Vector3f n({ 0.5f, 0.866f, 0.0f });
+        const Eigen::Vector3f p({ 0.0f, 0.0f, 0.0f });
+        RigidBody* plane = new RigidBody(1.0f, new Plane(p, n), createPlane(p, n));
+        plane->fixed = true;
+
+        rigidBodySystem.addBody(bodyBox);
+        rigidBodySystem.addBody(plane);
+
+        bodyBox->mesh->setSurfaceColor({ 0.1f, 1.0f, 0.2f })->setEdgeWidth(1.0f)->setTransparency(0.6f);
+        plane->mesh->setSurfaceColor({ 0.2f, 0.2f, 0.2f })->setSmoothShade(false)->setTransparency(0.4f);
+    }
+
+    // Box hanging from a box
+    //
+    static void createBoxStack(RigidBodySystem& rigidBodySystem)
+    {
+        rigidBodySystem.clear();
+        polyscope::removeAllStructures();
+
+        std::cout << "Loading stacked boxes scenario." << std::endl;
+
+        const int N = 20;
+
+        // Create a box.
+        const Eigen::Vector3f dim({ 1.0f, 1.0f, 1.0f });
+        RigidBody* topBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+        topBox->x = { 0.0f, 1.5f * (float)N, 0.0f };
+        rigidBodySystem.addBody(topBox);
+
+        const Eigen::Vector3f dx(0.0f, 1.5f, 0.0f);
+        RigidBody* parent = topBox;
+        for (int i = 0; i < N - 1; ++i)
+        {
+            // Create the next box in the chain.
+            RigidBody* nextBox = new RigidBody(1.0f, new Box(dim), createBox(dim));
+            nextBox->x = parent->x - dx;
+
+            rigidBodySystem.addBody(nextBox);
+            parent = nextBox;
+        }
+
+        // Create a plane that will act as the ground.
+        const Eigen::Vector3f n({ 0.0f, 1.0f, 0.0f });
+        const Eigen::Vector3f p({ 0.0f, 0.0f, 0.0f });
+        RigidBody* plane = new RigidBody(1.0f, new Plane(p, n), createPlane(p, n));
+        plane->fixed = true;
+        plane->mesh->setSurfaceColor({ 0.2f, 0.2f, 0.2f })->setSmoothShade(false)->setTransparency(0.4f);
+        rigidBodySystem.addBody(plane);
+
+
+    }
+
 
 };

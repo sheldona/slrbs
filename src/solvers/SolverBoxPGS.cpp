@@ -7,7 +7,6 @@
 
 #include <Eigen/Dense>
 
-
 namespace
 {
     static inline void multAndSub(const JBlock& G, const Eigen::Vector3f& x, const Eigen::Vector3f& y, const float& a, Eigen::VectorXf& b)
@@ -24,7 +23,7 @@ namespace
 	// Computes the right-hand side vector of the Schur complement system: 
     //      b = -phi/h - J*vel - dt*JMinv*force
     //
-    static inline void buildRHS(Joint* j, float h, Eigen::VectorXf& b)
+    static inline void buildRHS(const Joint* j, float h, Eigen::VectorXf& b)
     {
         const float hinv = 1.0f / h;
         const float gamma = 0.3f;
@@ -46,14 +45,14 @@ namespace
     // Loop over all other contacts for a body and compute modifications to the rhs vector b: 
     //           x -= (JMinv*Jother^T) * lambda_other
     //
-    static inline void accumulateCoupledContactsAndJoints(Joint* j, const JBlock& JMinv, RigidBody* body, Eigen::VectorXf& b)
+    static inline void accumulateCoupledContactsAndJoints(const Joint* j, const JBlock& JMinv, RigidBody* body, Eigen::VectorXf& b)
     {
         if( body->fixed )
             return;
 
         const int dim = j->lambda.rows();
 
-        for(Contact* cc : body->contacts)
+        for(const Contact* cc : body->contacts)
         {
             if( cc != j )
             {
@@ -64,7 +63,7 @@ namespace
             }
         }
 
-        for (Joint* jj : body->joints)
+        for (const Joint* jj : body->joints)
         {
             if (jj != j)
             {
@@ -91,25 +90,44 @@ namespace
     //    x - contains three impulse variables (non-interpenetration + two friction)
     //    b - rhs vector
     //    mu - the friction coefficient
-    static inline void solveContact(const Eigen::Matrix3f& A, const Eigen::VectorXf& b, Eigen::VectorXf& x, const float mu)
+    static inline Contact::eContactStateType solveContact(const Eigen::Matrix3f& A, const Eigen::VectorXf& b, Eigen::VectorXf& x, const float mu)
     {
+        Contact::eContactStateType state = Contact::kStick;
+
         // Normal impulse is projected to [0, inf]
         //
-        x(0) = (b(0) - A(0, 1) * x(1) - A(0, 2) * x(2)) / (A(0, 0) + 1e-3f);
+        x(0) = (b(0) - A(0, 1) * x(1) - A(0, 2) * x(2)) / (A(0, 0));
         if (x(0) < 0.0f) x(0) = 0.0f;
 
-        // Next, friction impulses are projected to [-mu * x(0), mu * x(1)]
+        // Next, friction impulses are projected to [-mu * x(0), mu * x(1)] (box friction model)
         //
         const float lowerx = -mu * x(0);
         const float upperx = mu * x(0);
         x(1) = (b(1) - A(1, 0) * x(0) - A(1, 2) * x(2)) / A(1, 1);
-        if (x(1) < lowerx) x(1) = lowerx;
-        else if (x(1) > upperx) x(1) = upperx;
+        if (x(1) < lowerx)
+        {
+            x(1) = lowerx;
+            state = Contact::kSlip;
+        }
+        else if (x(1) > upperx)
+        {
+            x(1) = upperx;
+            state = Contact::kSlip;
+        }
 
         x(2) = (b(2) - A(2, 0) * x(0) - A(2, 1) * x(1)) / A(2, 2);
-        if (x(2) < lowerx) x(2) = lowerx;
-        else if (x(2) > upperx) x(2) = upperx;
+        if (x(2) < lowerx)
+        {
+            x(2) = lowerx;
+            state = Contact::kSlip;
+        }
+        else if (x(2) > upperx)
+        {
+            x(2) = upperx;
+            state = Contact::kSlip;
+        }
 
+        return state;
     }
 
     static inline void solveJoint(const Eigen::LDLT<Eigen::MatrixXf>& LLT, const Eigen::VectorXf& b, Eigen::VectorXf& x)
@@ -125,7 +143,7 @@ SolverBoxPGS::SolverBoxPGS(RigidBodySystem* _rigidBodySystem) : Solver(_rigidBod
 
 void SolverBoxPGS::solve(float h)
 {
-    std::vector<Contact*>& contacts = m_rigidBodySystem->getContacts();
+    std::vector<Contact>& contacts = m_rigidBodySystem->getContacts();
     std::vector<Joint*>& joints = m_rigidBodySystem->getJoints();
     const int numContacts = contacts.size();
     const int numJoints = joints.size();
@@ -141,7 +159,7 @@ void SolverBoxPGS::solve(float h)
         {
             Joint* j = joints[i];
             const int dim = j->lambda.rows();
-            const float eps = 1e-5f;
+            const float eps = 1e-6f;
 
             // Compute the diagonal term : Aii = J0*Minv0*J0^T + J1*Minv1*J1^T
             //
@@ -167,23 +185,25 @@ void SolverBoxPGS::solve(float h)
     std::vector<Eigen::Matrix3f> Acontactii;
     if (numContacts > 0)
     {
+        const float eps = 1e-6f;
         // Build diagonal matrices
         Acontactii.resize(numContacts);
         for (int i = 0; i < numContacts; ++i)
         {
-            Contact* c = contacts[i];
+            Contact& c = contacts[i];
 
             // Compute the diagonal term : Aii = J0*Minv0*J0^T + J1*Minv1*J1^T
             //
             Acontactii[i].setZero(3, 3);
+            Acontactii[i](0, 0) = eps;
 
-            if (!c->body0->fixed)
+            if (!c.body0->fixed)
             {
-                Acontactii[i] += c->J0Minv * c->J0.transpose();
+                Acontactii[i] += c.J0Minv * c.J0.transpose();
             }
-            if (!c->body1->fixed)
+            if (!c.body1->fixed)
             {
-                Acontactii[i] += c->J1Minv * c->J1.transpose();
+                Acontactii[i] += c.J1Minv * c.J1.transpose();
             }
         }
     }
@@ -205,7 +225,7 @@ void SolverBoxPGS::solve(float h)
 
         for(int i = 0; i < numContacts; ++i)
         {
-            Contact* c = contacts[i];
+            Contact* c = &contacts[i];
             buildRHS(c, h, b[i+numJoints]);
             c->lambda.setZero();
         }
@@ -236,14 +256,14 @@ void SolverBoxPGS::solve(float h)
             //
             for(int i = 0; i < numContacts; ++i)
             {
-                Contact* c = contacts[i];
+                Contact* c = &contacts[i];
 
                 // Initialize current solution as x = b[i]
                 Eigen::VectorXf x = b[i+numJoints];
 
                 accumulateCoupledContactsAndJoints(c, c->J0Minv, c->body0, x);
                 accumulateCoupledContactsAndJoints(c, c->J1Minv, c->body1, x);
-                solveContact(Acontactii[i], x, c->lambda, c->mu);
+                c->state = solveContact(Acontactii[i], x, c->lambda, c->mu);
             }
         }
     }

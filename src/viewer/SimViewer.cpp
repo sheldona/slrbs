@@ -59,16 +59,25 @@ namespace
         {
             Eigen::MatrixXf contactP(numContacts, 3);
             Eigen::MatrixXf contactN(numContacts, 3);
+            std::vector<std::array<float, 3>> contactC(numContacts);
 
             for (unsigned int i = 0; i < numContacts; ++i)
             {
-                contactP.row(i)(0) = contacts[i]->p(0); contactP.row(i)(1) = contacts[i]->p(1); contactP.row(i)(2) = contacts[i]->p(2);
-                contactN.row(i)(0) = contacts[i]->n(0); contactN.row(i)(1) = contacts[i]->n(1); contactN.row(i)(2) = contacts[i]->n(2);
+                contactP.row(i)(0) = contacts[i].p(0); contactP.row(i)(1) = contacts[i].p(1); contactP.row(i)(2) = contacts[i].p(2);
+                contactN.row(i)(0) = contacts[i].n(0); contactN.row(i)(1) = contacts[i].n(1); contactN.row(i)(2) = contacts[i].n(2);
+                if (contacts[i].state == Contact::kSlip) contactC[i] = { 1.0f, 0.0f, 0.0f };
+                else contactC[i] = { 0.0f, 0.0f, 1.0f };
+
+                if (contacts[i].matched)
+                {
+                    contactC[i][1] += 0.5f;
+                }
             }
 
             auto pointCloud = polyscope::registerPointCloud("contacts", contactP);
 
-            pointCloud->setPointColor({ 1.0f, 0.0f, 0.0f });
+            //pointCloud->setPointColor({ 0.0f, 0.0f, 0.0f });
+            pointCloud->addColorQuantity("stickSlipColor", contactC)->setEnabled(true);
             pointCloud->setPointRadius(0.005);
             pointCloud->addVectorQuantity("normal", contactN)->setVectorColor({ 1.0f, 1.0f, 0.0f })->setVectorLengthScale(0.05f)->setEnabled(true);
         }
@@ -150,7 +159,7 @@ void SimViewer::start()
     polyscope::options::ssaaFactor = 2;
     polyscope::options::openImGuiWindowForUserCallback = true;
     polyscope::options::groundPlaneHeightFactor = 0.0f; // adjust the plane height
-    polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::TileReflection;
+    polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::None;
     polyscope::options::buildGui = false;
     polyscope::options::maxFPS = -1;
     polyscope::options::groundPlaneEnabled = true;
@@ -194,7 +203,8 @@ void SimViewer::drawGUI()
     ImGui::SliderFloat("Time step", &m_dt, 0.0f, 0.1f, "%.3f");
     ImGui::SliderInt("Num. sub-steps", &m_subSteps, 1, 20, "%u");
     ImGui::SliderInt("Solver iters.", &(m_rigidBodySystem->solverIter), 1, 100, "%u");
-    ImGui::SliderFloat("Friction coeff.", &(Contact::mu), 0.0f, 2.0f, "%.2f");
+    ImGui::SliderFloat("Friction mean", &(Contact::mu_r), 0.0f, 2.0f, "%.2f");
+    ImGui::SliderFloat("Friction variance", &(Contact::sigma_r), 0.0f, 2.0f, "%.2f");
     ImGui::RadioButton("PGS", &(m_rigidBodySystem->solverId), 0);  ImGui::SameLine();
     ImGui::RadioButton("Conj. Gradient (NO CONTACT)", &(m_rigidBodySystem->solverId), 1);
     ImGui::RadioButton("Conj. Residual (NO CONTACT)", &(m_rigidBodySystem->solverId), 2);
@@ -222,6 +232,12 @@ void SimViewer::drawGUI()
     }
     if (ImGui::Button("Create car scene")) {
         createCarScene();
+    }
+    if (ImGui::Button("Create box-on-plane")) {
+        createBoxOnPlane();
+    }
+    if (ImGui::Button("Create box-stack")) {
+        createBoxStack();
     }
 
     ImGui::Text("Step time: %3.3f ms", m_dynamicsTime);
@@ -310,6 +326,23 @@ void SimViewer::createCylinderOnPlane()
 void SimViewer::createCarScene()
 {
     Scenarios::createCarScene(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+void SimViewer::createBoxOnPlane()
+{
+    Scenarios::createBoxOnPlane(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+
+void SimViewer::createBoxStack()
+{
+    Scenarios::createBoxStack(*m_rigidBodySystem);
     m_resetState->save(*m_rigidBodySystem);
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();

@@ -32,12 +32,14 @@ public:
     void computeContactJacobians();
 
     // Returns all contacts following the current collision detection pass (read-only).
-    const std::vector<Contact*>& getContacts() const { return m_contacts; }
+    const std::vector<Contact>& getContacts() const { return m_contacts; }
 
     // Returns all contacts following the current collision detection pass.
-    std::vector<Contact*>& getContacts() { return m_contacts; }
+    std::vector<Contact>& getContacts() { return m_contacts; }
 
 private:
+
+    explicit CollisionDetect();
 
     // Sphere-sphere collision test.
     // Assumes that both @a body0 and @a body1 have a sphere collision geometry.
@@ -45,14 +47,23 @@ private:
     void collisionDetectSphereSphere(RigidBody* body0, RigidBody* body1);
 
     // Sphere-box collision test.
+    // Assumes that @a body0 has sphere geometry, and @a body1 has Box geometry.
+    //
     void collisionDetectSphereBox(RigidBody* body0, RigidBody* body1);
 
     // Cylinder-plane collision test
     void collisionDetectCylinderPlane(RigidBody* body0, RigidBody* body1);
 
+    // Box-plane collision
+    // Assumes that @a body0 has Box geometry, and @a body1 has Plane geometry.
+    //
+    void collisionDetectBoxPlane(RigidBody* body0, RigidBody* body1);
+
+
 private:
 
     RigidBodySystem* m_rigidBodySystem;                 // The rigid body system.
-    std::vector<Contact*> m_contacts;                   // Cached array of contacts.
+    std::vector<Contact> m_contacts;                   // Cached array of contacts.
+    size_t m_maxContacts;
 
 };

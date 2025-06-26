@@ -1,5 +1,6 @@
 #include "rigidbody/RigidBodyState.h"
 
+#include "contact/Contact.h"
 #include "rigidbody/RigidBody.h"
 #include "rigidbody/RigidBodySystem.h"
 

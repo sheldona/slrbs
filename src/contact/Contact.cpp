@@ -1,16 +1,17 @@
 #include "contact/Contact.h"
 #include "rigidbody/RigidBody.h"
 
-float Contact::mu = 0.8f;
+float Contact::mu_r = 0.8f;
+float Contact::sigma_r = 0.4f;
 
-Contact::Contact() : Joint(), p(), n(), t(), b()
+Contact::Contact() : Joint(), p(), n(), t(), b(), mu(mu_r), state(kStick), matched(false)
 {
 
 }
 
 Contact::Contact(RigidBody* _body0, RigidBody* _body1, const Eigen::Vector3f& _p, const Eigen::Vector3f& _n, float _pene) :
     Joint(_body0, _body1),
-    p(_p), n(_n), t(), b(), pene(_pene)
+    p(_p), n(_n), t(), b(), pene(_pene), mu(mu_r), state(kStick), matched(false)
 {
     dim = 3;
     J0.setZero(3, 6);
@@ -30,7 +31,7 @@ Contact::~Contact()
 
 }
 
-void Contact::computeContactFrame()
+void Contact::computeJacobian()
 {
     // Compute the contact frame, which consists of an orthonormal
     //  bases formed the vector n, t, and b
@@ -39,7 +40,7 @@ void Contact::computeContactFrame()
     // TODO Compute first tangent direction t
     //
     t = n.cross(Eigen::Vector3f(1, 0, 0));
-    if ( t.norm() < 1e-5f )
+    if (t.norm() < 1e-5f)
     {
         // Fail-safe: use axis-aligned direction (0,0,-1) 
         t = n.cross(Eigen::Vector3f(0, 1, 0));
@@ -50,10 +51,7 @@ void Contact::computeContactFrame()
     //
     b = n.cross(t);
     b.normalize();
-}
 
-void Contact::computeJacobian()
-{
     // Compute the Jacobians J0 and J1
     //
     const Eigen::Vector3f rr0 = p - body0->x;

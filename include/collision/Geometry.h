@@ -26,6 +26,8 @@ protected:
 
 
 // Sphere geometry.
+// The sphere is centered at the origin of the local coordinate frame
+// and has size of @a radius.
 //
 class Sphere : public Geometry
 {
@@ -47,6 +49,7 @@ public:
 };
 
 // Box geometry.
+// The box has dimensions dim[0] x dim[1] x dim[2]
 //
 class Box : public Geometry
 {
@@ -75,6 +78,7 @@ public:
 
 
 // Cylinder geometry.
+// The principal axis of the cylinder is aligned with the y-axis.
 //
 class Cylinder : public Geometry
 {
