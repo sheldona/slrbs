@@ -2,8 +2,8 @@
 #include "rigidbody/RigidBody.h"
 
 float Contact::mu = 0.4f;
-float Contact::stiffness = 1e6f;
-float Contact::damping = 1e5f;
+float Contact::stiffness = 1e5f;
+float Contact::damping = 1e3f;
 
 Contact::Contact() : Joint(), p(), n(), t(), b(), pene(0.0f)
 {
