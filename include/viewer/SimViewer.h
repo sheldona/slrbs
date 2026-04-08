@@ -40,11 +40,12 @@ private:
     void createSwingingBox();
     void createCylinderOnPlane();
     void createCarScene();
+    void createPistonScene();
 
     void draw();
     void drawGUI();
 
-    void preStep(std::vector<RigidBody*>&);
+    void preStep(float, std::vector<RigidBody*>&);
 
 private:
 
@@ -57,6 +58,7 @@ private:
     bool m_enableScreenshots;           // enable/disable saving screenshots
     bool m_drawContacts;                // enable drawing contacts
     bool m_drawConstraints;             // enable constraint viz
+    bool m_isHydraulic;
     float m_dynamicsTime;               // Compute time for the dynamics step (in ms)
     std::unique_ptr<RigidBodySystemState> m_resetState;
 

@@ -21,6 +21,47 @@ using namespace std;
 
 namespace
 {
+    static struct HydraulicStruct
+    {
+        HydraulicStruct() : 
+            f_hyd(0.0f), rho(870.0f), x_spool(0.0f), 
+            x_piston(0.0f), v_piston(0.0f),
+            P_tank(1e5f), P_relief(20e6f), P_source(1e6f), 
+            P_A(1e5f), P_B(1e5f), 
+            R_piston(0.05f), R_rod(0.035f),
+            beta(0.5e9f)
+        {
+        
+        }
+
+        void reset()
+        {
+            P_A = P_tank;
+            P_B = P_tank;
+            x_spool = 0.0f;
+            x_piston = 0.0f;
+            f_hyd = 0.0f;
+            v_piston = 0.0;
+        }
+
+        float rho;          // hydraulic fluid density
+        float x_spool;      // valve spool position (Typical range: -0.005 m to 0.0005m
+        float v_piston;     // piston velocity (from rigid body)
+        float x_piston;     // piston position (from rigid body)
+
+        float R_piston;     // radius of the piston
+        float R_rod;        // radius of the rod
+        float V_cyl;        // current volume of cylinder
+        float V_A, V_B;     // volumes in chamber A and B
+        float P_A, P_B;     // pressures in chamber A and B
+        float P_tank;       // tank pressure
+        float P_relief;     // relief pressure
+        float P_source;     // source pressure
+        float f_hyd;
+        float beta;         // bulk modulus of oil (Typical range: 0.7 GPa to 1.2 GPa)
+
+    } hydraulicParams;
+
     static RigidBodySystem* m_rigidBodySystem = new RigidBodySystem;
     
     static const char* strContacts = "contacts";
@@ -110,10 +151,10 @@ namespace
 }
 
 SimViewer::SimViewer() :
-    m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
+    m_dt(1.0f / 60.0f), m_subSteps(1), m_dynamicsTime(0.0f),
     m_paused(true), m_stepOnce(false),
     m_enableCollisions(true), m_enableScreenshots(false),
-    m_drawContacts(true), m_drawConstraints(true),
+    m_drawContacts(true), m_drawConstraints(true), m_isHydraulic(false),
     m_resetState()
 {
     m_resetState = std::make_unique<RigidBodySystemState>(*m_rigidBodySystem);
@@ -129,6 +170,8 @@ void SimViewer::reset()
     std::cout << " ---- Reset ----- " << std::endl;
     m_resetState->restore(*m_rigidBodySystem);
     m_dynamicsTime = 0.0f;
+    
+    hydraulicParams.reset();
 
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
@@ -168,7 +211,7 @@ void SimViewer::start()
     polyscope::state::userCallback = std::bind(&SimViewer::draw, this);
 
     // Add pre-step hook.
-    m_rigidBodySystem->setPreStepFunc(std::bind(&SimViewer::preStep, this, std::placeholders::_1));
+    m_rigidBodySystem->setPreStepFunc(std::bind(&SimViewer::preStep, this, std::placeholders::_1, std::placeholders::_2));
 
     // Show the window
     polyscope::show();
@@ -194,11 +237,16 @@ void SimViewer::drawGUI()
     ImGui::SliderFloat("Time step", &m_dt, 0.0f, 0.1f, "%.3f");
     ImGui::SliderInt("Num. sub-steps", &m_subSteps, 1, 20, "%u");
     ImGui::SliderInt("Solver iters.", &(m_rigidBodySystem->solverIter), 1, 100, "%u");
-    ImGui::SliderFloat("Friction coeff.", &(Contact::mu), 0.0f, 2.0f, "%.2f");
     ImGui::RadioButton("PGS", &(m_rigidBodySystem->solverId), 0);  ImGui::SameLine();
-    ImGui::RadioButton("Conj. Gradient (NO CONTACT)", &(m_rigidBodySystem->solverId), 1);
-    ImGui::RadioButton("Conj. Residual (NO CONTACT)", &(m_rigidBodySystem->solverId), 2);
+    ImGui::RadioButton("BPP", &(m_rigidBodySystem->solverId), 3);
+    ImGui::SliderFloat("Joint stiffness", &Joint::stiffness, 0.0f, 1e9f, "%.2f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat("Joint damping", &Joint::damping, 0.0f, 1e9f, "%.2f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat("Contact stiffness", &Contact::stiffness, 0.0f, 1e9f, "%.2f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat("Contact damping", &Contact::damping, 0.0f, 1e9f, "%.2f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat("Friction coeff.", &(Contact::mu), 0.0f, 2.0f, "%.2f");
+
     ImGui::PopItemWidth();
+
 
     if (ImGui::Checkbox("Enable collision detecton", &m_enableCollisions)) {
         m_rigidBodySystem->setEnableCollisionDetection(m_enableCollisions);
@@ -223,7 +271,17 @@ void SimViewer::drawGUI()
     if (ImGui::Button("Create car scene")) {
         createCarScene();
     }
+    if (ImGui::Button("Create piston scene")) {
+        createPistonScene();
+    }
 
+    ImGui::SliderFloat("x_spool", &(hydraulicParams.x_spool), -0.005f, 0.005f, "%1.4f");
+    ImGui::SliderFloat("P_source", &(hydraulicParams.P_source), 1000.0f, 1e9f, "%10.1f");
+    ImGui::Text("f_hyd: %8.3f N", hydraulicParams.f_hyd);
+    ImGui::Text("P_A: %9.2f Pa", hydraulicParams.P_A);
+    ImGui::Text("P_B: %9.2f Pa", hydraulicParams.P_B);
+    ImGui::Text("V_A: %9.6f m3", hydraulicParams.V_A);
+    ImGui::Text("V_B: %9.6f m3", hydraulicParams.V_B);
     ImGui::Text("Step time: %3.3f ms", m_dynamicsTime);
 
 }
@@ -234,6 +292,8 @@ void SimViewer::draw()
 
     if( !m_paused || m_stepOnce )
     {
+
+
         auto start = std::chrono::high_resolution_clock::now();
 
         // Step the simulation.
@@ -315,7 +375,54 @@ void SimViewer::createCarScene()
     polyscope::resetScreenshotIndex();
 }
 
-void SimViewer::preStep(std::vector<RigidBody*>& _bodies)
+void SimViewer::createPistonScene()
 {
-    // do something useful here?
+    Scenarios::createPistonScene(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+    m_isHydraulic = true;
+    hydraulicParams.reset();
+}
+
+
+void SimViewer::preStep(float dt, std::vector<RigidBody*>& _bodies)
+{
+    if (m_isHydraulic)
+    {
+        auto& bodies = m_rigidBodySystem->getBodies();
+
+        const float L_stroke = 10.0f;
+        RigidBody* piston = bodies[0];
+        hydraulicParams.v_piston = -1.0f * piston->xdot.x();
+        hydraulicParams.x_piston = std::clamp(-1.0f * piston->x.x(), 0.0f, L_stroke);
+
+        const float Cd = 0.62f;
+        const float A_x = 0.1f * std::abs(hydraulicParams.x_spool);
+        static const float pi = 3.14159f;
+        hydraulicParams.V_cyl = pi * hydraulicParams.x_spool + 0.2f;
+       
+        const float deltaP_A = (hydraulicParams.x_spool > 0) ? (hydraulicParams.P_source - hydraulicParams.P_A) : (hydraulicParams.P_tank - hydraulicParams.P_A);
+        const float deltaP_B = (hydraulicParams.x_spool > 0) ? (hydraulicParams.P_tank - hydraulicParams.P_B) : (hydraulicParams.P_source - hydraulicParams.P_B);
+        const float Q_A = Cd * A_x * std::sqrt(2.0f * std::abs(deltaP_A) / hydraulicParams.rho) * (deltaP_A > 0.0f ? 1.0f : -1.0f);
+        const float Q_B = Cd * A_x * std::sqrt(2.0f * std::abs(deltaP_B) / hydraulicParams.rho) * (deltaP_B > 0.0f ? 1.0f : -1.0f);
+
+        const float A_cap = pi * hydraulicParams.R_piston * hydraulicParams.R_piston;
+        const float A_annulus = pi * (hydraulicParams.R_piston * hydraulicParams.R_piston - hydraulicParams.R_rod * hydraulicParams.R_rod);
+        const float V_dead = 0.001f;
+        hydraulicParams.V_A = V_dead + A_cap * hydraulicParams.x_piston;
+        hydraulicParams.V_B = V_dead + A_annulus * (L_stroke - hydraulicParams.x_piston);
+        const float dVA_dt = A_cap * hydraulicParams.v_piston;
+        const float dVB_dt = -A_annulus * hydraulicParams.v_piston;
+        const float dPA_dt = (hydraulicParams.beta / hydraulicParams.V_A) * (Q_A - dVA_dt);
+        const float dPB_dt = (hydraulicParams.beta / hydraulicParams.V_B) * (Q_B - dVB_dt);
+
+        hydraulicParams.P_A = std::clamp(hydraulicParams.P_A + dPA_dt * dt, hydraulicParams.P_tank, hydraulicParams.P_relief);
+        hydraulicParams.P_B = std::clamp(hydraulicParams.P_B + dPB_dt * dt, hydraulicParams.P_tank, hydraulicParams.P_relief);
+
+
+        hydraulicParams.f_hyd = (hydraulicParams.P_A * A_cap) - (hydraulicParams.P_B * A_annulus);
+        const Eigen::Vector3f f = hydraulicParams.f_hyd * Eigen::Vector3f(-1, 0, 0);
+        piston->addForceAtPos({ 0.0f, 0.0f, 0.0f }, f);
+    }
 }

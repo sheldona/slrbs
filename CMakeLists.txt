@@ -32,6 +32,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Eigen)
 FetchContent_GetProperties(Eigen SOURCE_DIR Eigen_SRC_DIR BINARY_DIR Eigen_BIN_DIR)
 
+#
+# Bullet: Paths to pre-built libraries for linear math and collision detection
+#
+set(Bullet_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/bullet3-bcl/include")
+set(Bullet_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/bullet3-bcl/lib")
+
 
 set(collision_HEADERS include/collision/CollisionDetect.h 
                       include/collision/Geometry.h )
@@ -47,9 +53,11 @@ set(rigidbody_SOURCE src/rigidbody/RigidBody.cpp
 
 set(joint_HEADERS include/joint/Joint.h
 				  include/joint/Hinge.h
+				  include/joint/Prismatic.h
 				  include/joint/Spherical.h )
 set(joint_SOURCE src/joint/Joint.cpp
 				 src/joint/Hinge.cpp
+				 src/joint/Prismatic.cpp
 			     src/joint/Spherical.cpp )
 
 set(contact_HEADERS include/contact/Contact.h )
@@ -57,9 +65,11 @@ set(contact_SOURCE src/contact/Contact.cpp )
 
 set(solver_HEADERS include/solvers/Solver.h 
                    include/solvers/SolverBoxPGS.h
+				   include/solvers/SolverBoxBPP.h
 				   include/solvers/SolverConjGradient.h
-				   include/solvers/SolverConjResidual.h)
+				   include/solvers/SolverConjResidual.h )
 set(solver_SOURCE src/solvers/SolverBoxPGS.cpp
+				  src/solvers/SolverBoxBPP.cpp
 				  src/solvers/SolverConjGradient.cpp
 	              src/solvers/SolverConjResidual.cpp)
 
@@ -82,7 +92,10 @@ add_executable (slrbs main.cpp
           ${viewer_HEADERS} ${viewer_SOURCE} )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include ${Eigen_SRC_DIR} ${COMMON_INCLUDES})
-target_link_libraries(slrbs OpenGL::GL polyscope)
+include_directories(${Bullet_INCLUDE_DIR})
+target_link_directories(slrbs PRIVATE ${Bullet_LIB_DIR})
+target_link_libraries(slrbs optimized OpenGL::GL polyscope Bullet3Common BulletCollision LinearMath)
+target_link_libraries(slrbs debug OpenGL::GL polyscope Bullet3Common_Debug BulletCollision_Debug LinearMath_Debug)
 
 # Setup source code groups
 #

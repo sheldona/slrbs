@@ -2,6 +2,8 @@
 
 #include "util/Types.h"
 #include <Eigen/Dense>
+#include <btBulletCollisionCommon.h>
+
 
 // List of geometry type ids.
 enum eGeometryType { kSphere, kBox, kPlane, kCylinder };
@@ -55,10 +57,18 @@ public:
 
     Box(const Eigen::Vector3f& _dim) : dim(_dim) 
     {
+        const btVector3 halfExtents(dim.x() * 0.5f,
+            dim.y() * 0.5f,
+            dim.z() * 0.5f);
+        m_btBoxShape = new btBoxShape(halfExtents);
+        m_btBoxShape->setMargin(1e-3f);
 
     }
 
-    virtual ~Box() {}
+    virtual ~Box() 
+    {
+        delete m_btBoxShape;
+    }
 
     virtual Eigen::Matrix3f computeInertia(float _mass) override
     {
@@ -68,6 +78,8 @@ public:
         m_I(2,2) = (1.0f/12.0f)*_mass*(dim[0]*dim[0] + dim[1]*dim[1]);
         return m_I;
     }
+
+    btBoxShape* m_btBoxShape;
 
     virtual eGeometryType getType() const override { return kBox; }
 

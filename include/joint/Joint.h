@@ -6,7 +6,7 @@
 
 class RigidBody;
 
-enum eConstraintType { kContact = 0, kSpherical, kHinge };
+enum eConstraintType { kContact = 0, kSpherical, kHinge, kPrismatic };
 
 // Joint class.
 //
@@ -37,6 +37,8 @@ public:
     Eigen::Vector3f r1;         // Relative attachment point of joint in body1 coordinate frame.
     Eigen::Quaternionf q0;      // Relative attachment orientation in body0 coordinate frame.
     Eigen::Quaternionf q1;      // Relative attachment orientation in body1 coordinate frame.
+
+    static float stiffness, damping;
 
     virtual eConstraintType getType() const = 0;
 

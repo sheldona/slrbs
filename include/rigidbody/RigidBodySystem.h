@@ -11,7 +11,7 @@ class Joint;
 class Solver;
 class RigidBody;
 
-typedef std::function<void(std::vector<RigidBody*>&)> PreStepFunc;
+typedef std::function<void(float, std::vector<RigidBody*>&)> PreStepFunc;
 typedef std::function<void()> ResetFunc;
 
 class RigidBodySystem

@@ -18,7 +18,8 @@ class Contact : public Joint
 {
 public: 
     static float mu;            // Coefficient of friction (global)
-
+    static float stiffness;
+    static float damping;
 public:
 
     // Constructor with all parameters.

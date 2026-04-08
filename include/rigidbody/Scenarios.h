@@ -4,6 +4,7 @@
 #include "rigidbody/RigidBodySystem.h"
 #include "joint/Spherical.h"
 #include "joint/Hinge.h"
+#include "joint/Prismatic.h"
 #include "util/Types.h"
 #include "util/MeshAssets.h"
 
@@ -173,7 +174,7 @@ public:
         rigidBodySystem.addBody(plane);
     }
 
-    // Box hanging from a box
+    // Simple car rolling on the ground
     //
     static void createCarScene(RigidBodySystem& rigidBodySystem)
     {
@@ -244,6 +245,61 @@ public:
         rigidBodySystem.addJoint(rfhinge);
         rigidBodySystem.addJoint(lrhinge);
         rigidBodySystem.addJoint(rrhinge);
+    }
+
+    // Simple car rolling on the ground
+ //
+    static void createPistonScene(RigidBodySystem& rigidBodySystem)
+    {
+        rigidBodySystem.clear();
+        polyscope::removeAllStructures();
+
+        std::cout << "Loading piston scenario." << std::endl;
+
+        // Create moving part and static part.
+        RigidBody* dynBox = new RigidBody(250.0f, new Box({ 0.4f, 4.8f, 4.8f }), createBox({ 0.4f, 4.8f, 4.8f }));
+        dynBox->x = { 0.0f, 2.6f, 0.0f };
+
+        RigidBody* staBox = new RigidBody(1.0f, new Box({ 1.2f, 0.5f, 0.5f }), createBox({ 1.2f, 0.5f, 0.5f }));
+        staBox->x = { 0.8f, 2.6f, 0.0f };
+        staBox->fixed = true;
+
+        // Create a ground plane.
+        RigidBody* plane = new RigidBody(1.0f, new Plane({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }), "");
+        plane->x = { 0.0f, 0.0f, 0.0f };
+        plane->fixed = true;
+
+        rigidBodySystem.addBody(dynBox);
+        rigidBodySystem.addBody(staBox);
+        rigidBodySystem.addBody(plane);
+
+        Eigen::Vector3f r0(0, 0, 0), r1(0, 0, 0);
+        Eigen::Quaternionf q0(1, 0, 0, 0), q1(1, 0, 0, 0);
+
+        Prismatic* pri = new Prismatic(staBox, dynBox, r0, q0, r1, q1);
+        rigidBodySystem.addJoint(pri);
+
+        const float dx = 1.2f;
+        const float dy = 1.2f;
+        const float dz = 1.2f;
+        const float xstart = -6.0f;
+        const float ystart = 2.3f;
+        const float zstart = -2.0f;
+
+        // Create 2 x 2 x 1 wall of boxes
+        for (int i = 0; i < 4; ++i)
+        {
+            for (int j = 0; j < 4; ++j)
+            {
+                for (int k = 0; k < 4; ++k)
+                {
+                    RigidBody* box = new RigidBody(50.0f, new Box({dx, dy, dz }), createBox({ dx, dy, dz }));
+                    box->x = { xstart + i*(dx + 1e-2f), ystart + j*(dy + 1e-2f), zstart + k*(dz + 1e-2f) };
+                    rigidBodySystem.addBody(box);
+                }
+            }
+        }
+
     }
 
 };

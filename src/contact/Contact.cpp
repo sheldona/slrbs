@@ -1,9 +1,11 @@
 #include "contact/Contact.h"
 #include "rigidbody/RigidBody.h"
 
-float Contact::mu = 0.8f;
+float Contact::mu = 0.4f;
+float Contact::stiffness = 1e6f;
+float Contact::damping = 1e5f;
 
-Contact::Contact() : Joint(), p(), n(), t(), b()
+Contact::Contact() : Joint(), p(), n(), t(), b(), pene(0.0f)
 {
 
 }
@@ -36,7 +38,7 @@ void Contact::computeContactFrame()
     //  bases formed the vector n, t, and b
     //
 
-    // TODO Compute first tangent direction t
+    // Compute first tangent direction t
     //
     t = n.cross(Eigen::Vector3f(1, 0, 0));
     if ( t.norm() < 1e-5f )
@@ -46,7 +48,7 @@ void Contact::computeContactFrame()
     }
     t.normalize();
 
-    // TODO Compute second tangent direction b.
+    // Compute second tangent direction b.
     //
     b = n.cross(t);
     b.normalize();

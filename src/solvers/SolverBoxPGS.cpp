@@ -10,6 +10,7 @@
 
 namespace
 {
+
     static inline void multAndSub(const JBlock& G, const Eigen::Vector3f& x, const Eigen::Vector3f& y, const float& a, Eigen::VectorXf& b)
     {
             b -= a * G.col(0) * x(0);
@@ -27,7 +28,7 @@ namespace
     static inline void buildRHS(Joint* j, float h, Eigen::VectorXf& b)
     {
         const float hinv = 1.0f / h;
-        const float gamma = 0.3f;
+        const float gamma = (h * Joint::stiffness) / (h * Joint::stiffness + Joint::damping);
         const int dim = j->lambda.rows();
         b = -hinv * gamma * j->phi;
 
@@ -40,6 +41,28 @@ namespace
         {
             multAndSub(j->J1Minv, j->body1->f, j->body1->tau, h, b);
             multAndSub(j->J1, j->body1->xdot, j->body1->omega, 1.0f, b);
+        }
+    }
+
+    // Computes the right-hand side vector of the Schur complement system: 
+    //      b = -phi/h - J*vel - dt*JMinv*force
+    //
+    static inline void buildRHS(Contact* c, float h, Eigen::VectorXf& b)
+    {
+        const float hinv = 1.0f / h;
+        const float gamma = (h * Contact::stiffness) / (h * Contact::stiffness + Contact::damping);
+        const int dim = c->lambda.rows();
+        b = -hinv * gamma * c->phi;
+
+        if (!c->body0->fixed)
+        {
+            multAndSub(c->J0Minv, c->body0->f, c->body0->tau, h, b);
+            multAndSub(c->J0, c->body0->xdot, c->body0->omega, 1.0f, b);
+        }
+        if (!c->body1->fixed)
+        {
+            multAndSub(c->J1Minv, c->body1->f, c->body1->tau, h, b);
+            multAndSub(c->J1, c->body1->xdot, c->body1->omega, 1.0f, b);
         }
     }
 
@@ -95,7 +118,7 @@ namespace
     {
         // Normal impulse is projected to [0, inf]
         //
-        x(0) = (b(0) - A(0, 1) * x(1) - A(0, 2) * x(2)) / (A(0, 0) + 1e-3f);
+        x(0) = (b(0) - A(0, 1) * x(1) - A(0, 2) * x(2)) / (A(0, 0));
         if (x(0) < 0.0f) x(0) = 0.0f;
 
         // Next, friction impulses are projected to [-mu * x(0), mu * x(1)]
@@ -141,7 +164,7 @@ void SolverBoxPGS::solve(float h)
         {
             Joint* j = joints[i];
             const int dim = j->lambda.rows();
-            const float eps = 1e-5f;
+            const float eps = 1.0f / (h * h * Joint::stiffness + h * Joint::damping);
 
             // Compute the diagonal term : Aii = J0*Minv0*J0^T + J1*Minv1*J1^T
             //
@@ -172,10 +195,12 @@ void SolverBoxPGS::solve(float h)
         for (int i = 0; i < numContacts; ++i)
         {
             Contact* c = contacts[i];
+            const float eps = 1.0f / (h * h * Contact::stiffness + h * Contact::damping);
 
             // Compute the diagonal term : Aii = J0*Minv0*J0^T + J1*Minv1*J1^T
             //
             Acontactii[i].setZero(3, 3);
+            Acontactii[i](0, 0) = eps;
 
             if (!c->body0->fixed)
             {
