@@ -80,8 +80,6 @@ void Hinge::computeGeometricStiffness()
     const Eigen::Vector3f rr0 = body0->q * r0;
     const Eigen::Vector3f rr1 = body1->q * r1;
 
-    const Eigen::Vector3f p0 = rr0 - body0->x;
-    const Eigen::Vector3f p1 = rr1 - body1->x;
     const Eigen::Vector3f nn = body0->q * (q0 * Eigen::Vector3f(1, 0, 0));
     const Eigen::Vector3f uu = body1->q * (q1 * Eigen::Vector3f(0, 1, 0));
     const Eigen::Vector3f vv = body1->q * (q1 * Eigen::Vector3f(0, 0, 1));
@@ -90,17 +88,16 @@ void Hinge::computeGeometricStiffness()
     const Eigen::Matrix3f vnT = vv * nn.transpose();
 
     G0.setZero();
-    G0.block<3, 3>(3, 3) += prodOfCrossProd(lambda.segment<3>(0), p0);
-    G0.block<3, 3>(3, 3) += -unT.transpose();
-    G0.block<3, 3>(3, 3) += -vnT.transpose();
-    // TODO: missing additional off-diagonal blocks here. 
-    //  Need to modify G block matrix to account for 12x12 version of geom stiffness matrix
+    // Positional stiffness (scaled by linear lambdas 0, 1, 2)
+    G0.block<3, 3>(3, 3) += prodOfCrossProd(lambda.segment<3>(0), rr0);
 
-
+    // Rotational stiffness
+    G0.block<3, 3>(3, 3) += lambda(3)*unT.transpose();
+    G0.block<3, 3>(3, 3) += lambda(4)*vnT.transpose();
 
     G1.setZero();
-    G1.block<3, 3>(3, 3) += -prodOfCrossProd(lambda.segment<3>(0), p1);
-    G1.block<3, 3>(3, 3) += unT.transpose();
-    G1.block<3, 3>(3, 3) += vnT.transpose();
+    G1.block<3, 3>(3, 3) += -prodOfCrossProd(lambda.segment<3>(0), rr1);
+    G1.block<3, 3>(3, 3) += lambda(3)*unT;
+    G1.block<3, 3>(3, 3) += lambda(4)*vnT;
 
 }

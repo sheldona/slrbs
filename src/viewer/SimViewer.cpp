@@ -314,6 +314,7 @@ void SimViewer::draw()
 			}
 
             float maxK_M = 0.0f;
+
             for (auto b : m_rigidBodySystem->getBodies())
             {
                 if (b->fixed) continue;
@@ -458,7 +459,11 @@ void SimViewer::preStep(RigidBodySystem& rigidBodySystem, float h)
     // Reset geometric stiffness damping values.
     //
     for (auto b : bodies)
+    {
         b->gsDamp.setZero();
+        b->gsSum.setZero();
+    }
+        
 
     // Recompute geometric stiffness damping.
     // The damping will be added to the bodies' inertia matrices during integration.
@@ -487,8 +492,8 @@ void SimViewer::preStep(RigidBodySystem& rigidBodySystem, float h)
             for (int c = 0; c < 3; c++)
             {
                 const float m = b->I(c, c);
-                const float k = 2.0f * b->gsSum.col(c + 3).norm();
-                b->gsDamp(c) = std::max(0.0f, h * h * k - 4 * m_alpha * m);
+                const float k = 1.73205f * b->gsSum.col(c + 3).norm();
+                b->gsDamp(c) = std::max(0.0f, (h * k - 4 * m_alpha * m)/2.0f);
             }
             // SA: seems we have to do this again here so that 
             //  solver has most recent gs damping information
