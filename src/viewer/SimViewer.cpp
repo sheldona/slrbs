@@ -322,19 +322,19 @@ void SimViewer::draw()
                 for (int c = 0; c < 3; c++)
                 {
                     const float m = b->mass;
-                    const float k = 2.0f * b->gsSum.col(c).norm();
+                    const float k = 2.0f * b->gsSum.col(c).norm() / m_dt;
                     maxK_M = std::max(k / m, maxK_M);
                 }
 
                 for (int c = 0; c < 3; c++)
                 {
                     const float m = b->I(c, c);
-                    const float k = 2.0f * b->gsSum.col(c + 3).norm();
+                    const float k = 2.0f * b->gsSum.col(c + 3).norm() / m_dt;
                     maxK_M = std::max(k / m, maxK_M);
                 }
             }
 
-            const float dt = 2.0f * m_alpha * std::sqrt(1.0f / maxK_M);
+            const float dt = 2.0f * std::sqrt(1.0f / maxK_M * m_alpha);
             m_subSteps = std::max(1, (int)ceil(m_dt / dt));
         }
 
