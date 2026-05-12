@@ -77,30 +77,70 @@ void Hinge::computeJacobian()
 
 void Hinge::computeGeometricStiffness()
 {
+    // 1. Setup local vectors in world space
     const Eigen::Vector3f rr0 = body0->q * r0;
     const Eigen::Vector3f rr1 = body1->q * r1;
 
-    const Eigen::Vector3f p0 = rr0 - body0->x;
-    const Eigen::Vector3f p1 = rr1 - body1->x;
-    const Eigen::Vector3f nn = body0->q * (q0 * Eigen::Vector3f(1, 0, 0));
-    const Eigen::Vector3f uu = body1->q * (q1 * Eigen::Vector3f(0, 1, 0));
-    const Eigen::Vector3f vv = body1->q * (q1 * Eigen::Vector3f(0, 0, 1));
+    const Eigen::Vector3f ni = body0->q * (q0 * Eigen::Vector3f(1, 0, 0));
+    const Eigen::Vector3f uj = body1->q * (q1 * Eigen::Vector3f(0, 1, 0));
+    const Eigen::Vector3f vj = body1->q * (q1 * Eigen::Vector3f(0, 0, 1));
 
-    const Eigen::Matrix3f unT = uu * nn.transpose();
-    const Eigen::Matrix3f vnT = vv * nn.transpose();
+    // 2. Initialize the full geometric stiffness components 
+    // Assuming G0 and G1 are the diagonal blocks, and you may need G01 for coupling
+    G0.setZero(); // 6x6 stiffness for body 0
+    G1.setZero(); // 6x6 stiffness for body 1
 
-    G0.setZero();
-    G0.block<3, 3>(3, 3) += prodOfCrossProd(lambda.segment<3>(0), p0);
-    G0.block<3, 3>(3, 3) += -unT.transpose();
-    G0.block<3, 3>(3, 3) += -vnT.transpose();
-    // TODO: missing additional off-diagonal blocks here. 
-    //  Need to modify G block matrix to account for 12x12 version of geom stiffness matrix
+    // --- Ball and Socket Part (Linear constraints 0, 1, 2) ---
+    const Eigen::Vector3f lambda_lin = lambda.segment<3>(0);
+    G0.block<3, 3>(3, 3) = prodOfCrossProd(lambda_lin, rr0);
+    G1.block<3, 3>(3, 3) = -prodOfCrossProd(lambda_lin, rr1);
 
+    // --- Dot-1 Constraints (Angular constraints 3, 4) ---
+    // We implement K = lambda * (u' * n^T + n' * u^T) for both u and v
+    auto applyDot1Stiffness = [&](float lam, const Eigen::Vector3f& n, const Eigen::Vector3f& u) {
+        // n' for body i (body0) is hat(n)
+        // u' for body j (body1) is hat(u)
+        Eigen::Matrix3f n_hat = hat(n);
+        Eigen::Matrix3f u_hat = hat(u);
 
+        // Based on the paper's low-rank decomposition:
+        // G_rot_00 (Body 0 diagonal)
+        G0.block<3, 3>(3, 3) += lam * (n_hat * u.dot(n) * n_hat.transpose()); 
 
-    G1.setZero();
-    G1.block<3, 3>(3, 3) += -prodOfCrossProd(lambda.segment<3>(0), p1);
-    G1.block<3, 3>(3, 3) += unT.transpose();
-    G1.block<3, 3>(3, 3) += vnT.transpose();
+        // Body 0 (i) contribution:
+        G0.block<3, 3>(3, 3) += lam * (u_hat * n_hat).transpose();
 
+        // Body 1 (j) contribution:
+        G1.block<3, 3>(3, 3) += lam * (n_hat * u_hat).transpose();
+    };
+
+    applyDot1Stiffness(lambda(3), ni, uj);
+    applyDot1Stiffness(lambda(4), ni, vj);
 }
+
+//void Hinge::computeGeometricStiffness()
+//{
+//    const Eigen::Vector3f rr0 = body0->q * r0;
+//    const Eigen::Vector3f rr1 = body1->q * r1;
+//
+//    const Eigen::Vector3f nn = body0->q * (q0 * Eigen::Vector3f(1, 0, 0));
+//    const Eigen::Vector3f uu = body1->q * (q1 * Eigen::Vector3f(0, 1, 0));
+//    const Eigen::Vector3f vv = body1->q * (q1 * Eigen::Vector3f(0, 0, 1));
+//
+//    const Eigen::Matrix3f unT = uu * nn.transpose();
+//    const Eigen::Matrix3f vnT = vv * nn.transpose();
+//
+//    G0.setZero();
+//    // Positional stiffness (scaled by linear lambdas 0, 1, 2)
+//    G0.block<3, 3>(3, 3) += prodOfCrossProd(lambda.segment<3>(0), rr0);
+//
+//    // Rotational stiffness
+//    G0.block<3, 3>(3, 3) += lambda(3)*unT.transpose();
+//    G0.block<3, 3>(3, 3) += lambda(4)*vnT.transpose();
+//
+//    G1.setZero();
+//    G1.block<3, 3>(3, 3) += -prodOfCrossProd(lambda.segment<3>(0), rr1);
+//    G1.block<3, 3>(3, 3) += lambda(3)*unT;
+//    G1.block<3, 3>(3, 3) += lambda(4)*vnT;
+//
+//}

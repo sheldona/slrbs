@@ -114,16 +114,14 @@ void Contact::computeJacobian()
 
 void Contact::computeGeometricStiffness()
 {
-    const Eigen::Vector3f rr0 = body0->q * p;
-    const Eigen::Vector3f rr1 = body1->q * p;
+    const Eigen::Vector3f rr0 = p - body0->x;
+    const Eigen::Vector3f rr1 = p - body1->x;
 
-    const Eigen::Vector3f p0 = rr0 - body0->x;
-    const Eigen::Vector3f p1 = rr1 - body1->x;
 
-    const Eigen::Vector3f nlambda = lambda[0] * n;
+    const Eigen::Vector3f nlambda = lambda[0] * n + lambda[1]*t + lambda[2]*b;
 
     G0.setZero();
-    G0.block<3, 3>(3, 3) = prodOfCrossProd(nlambda, p0);
+    G0.block<3, 3>(3, 3) = prodOfCrossProd(nlambda, rr0);
     G1.setZero();
-    G1.block<3, 3>(3, 3) = -prodOfCrossProd(nlambda, p1);
+    G1.block<3, 3>(3, 3) = -prodOfCrossProd(nlambda, rr1);
 }
