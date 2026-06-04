@@ -227,7 +227,7 @@ void SimViewer::drawGUI()
         createServoScene();
     }
 
-    ImGui::SliderFloat("Time step", &m_targetTheta, -3.14f, 3.14f, "%.2f");
+    ImGui::SliderFloat("Target angle (pd servo):", &m_targetTheta, -3.14f, 3.14f, "%.2f");
     ImGui::Text("Step time: %3.3f ms", m_dynamicsTime);
 
 }

@@ -62,6 +62,8 @@ void Hinge::computeJacobian()
 
     if (m_controlType == kServo)
     {
+        assert(dim == 6);
+
         Eigen::Quaternionf qRel = q1.conjugate() * body1->q.conjugate() * body0->q * q0;
 
         if (qRel.w() < 0.0f) 
@@ -88,10 +90,11 @@ void Hinge::computeJacobian()
     }
     else 
     {
-        J0Minv.block(0, 0, 6, 3) = (1.0f / body0->mass) * J0.block(0, 0, 6, 3);
-        J0Minv.block(0, 3, 6, 3) = J0.block(0, 3, 6, 3) * body0->Iinv;
-        J1Minv.block(0, 0, 6, 3) = (1.0f / body1->mass) * J1.block(0, 0, 6, 3);
-        J1Minv.block(0, 3, 6, 3) = J1.block(0, 3, 6, 3) * body1->Iinv;
+        assert(dim == 5);
+        J0Minv.block(0, 0, 5, 3) = (1.0f / body0->mass) * J0.block(0, 0, 5, 3);
+        J0Minv.block(0, 3, 5, 3) = J0.block(0, 3, 5, 3) * body0->Iinv;
+        J1Minv.block(0, 0, 5, 3) = (1.0f / body1->mass) * J1.block(0, 0, 5, 3);
+        J1Minv.block(0, 3, 5, 3) = J1.block(0, 3, 5, 3) * body1->Iinv;
     }
 
 }
