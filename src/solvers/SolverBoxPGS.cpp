@@ -27,7 +27,7 @@ namespace
     static inline void buildRHS(Joint* j, float h, Eigen::VectorXf& b)
     {
         const float hinv = 1.0f / h;
-        const float gamma = 0.3f;
+        const float gamma = 0.4f;
         const int dim = j->lambda.rows();
         b = -hinv * gamma * j->phi;
 
@@ -93,9 +93,10 @@ namespace
     //    mu - the friction coefficient
     static inline void solveContact(const Eigen::Matrix3f& A, const Eigen::VectorXf& b, Eigen::VectorXf& x, const float mu)
     {
+        const float eps = 1e-6f;
         // Normal impulse is projected to [0, inf]
         //
-        x(0) = (b(0) - A(0, 1) * x(1) - A(0, 2) * x(2)) / (A(0, 0) + 1e-3f);
+        x(0) = (b(0) - A(0, 1) * x(1) - A(0, 2) * x(2)) / (A(0, 0) + eps);
         if (x(0) < 0.0f) x(0) = 0.0f;
 
         // Next, friction impulses are projected to [-mu * x(0), mu * x(1)]
@@ -141,7 +142,7 @@ void SolverBoxPGS::solve(float h)
         {
             Joint* j = joints[i];
             const int dim = j->lambda.rows();
-            const float eps = 1e-5f;
+            const float eps = 1e-7f;
 
             // Compute the diagonal term : Aii = J0*Minv0*J0^T + J1*Minv1*J1^T
             //
@@ -167,6 +168,7 @@ void SolverBoxPGS::solve(float h)
     std::vector<Eigen::Matrix3f> Acontactii;
     if (numContacts > 0)
     {
+        const float eps = 1e-6f;
         // Build diagonal matrices
         Acontactii.resize(numContacts);
         for (int i = 0; i < numContacts; ++i)
@@ -176,6 +178,7 @@ void SolverBoxPGS::solve(float h)
             // Compute the diagonal term : Aii = J0*Minv0*J0^T + J1*Minv1*J1^T
             //
             Acontactii[i].setZero(3, 3);
+            Acontactii[i](0, 0) = eps;
 
             if (!c->body0->fixed)
             {

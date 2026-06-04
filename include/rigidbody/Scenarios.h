@@ -257,6 +257,9 @@ public:
         bot->fixed = true;
         RigidBody* top = new RigidBody(1.0f, new Box({ 0.4f, 2.0f, 0.4f }), createBox({ 0.4f, 2.0f, 0.4f }));
         top->x = { 0.0f, 2.0f, 0.0f };
+        RigidBody* sphere = new RigidBody(1.0f, new Sphere(0.5f), createSphere(0.5f));
+        sphere->x = { 0.0f, 1.0f, 1.0f };
+        sphere->fixed = true;
 
         Hinge* h = new Hinge(bot, top, { 0.0f, 1.0f, 0.0f }, Eigen::Quaternionf::Identity(),
             { 0.0f, -1.0f, 0.0f }, Eigen::Quaternionf::Identity());
@@ -265,6 +268,7 @@ public:
 
         rigidBodySystem.addBody(bot);
         rigidBodySystem.addBody(top);
+        rigidBodySystem.addBody(sphere);
         rigidBodySystem.addJoint(h);
     }
 };
