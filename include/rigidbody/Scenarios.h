@@ -246,4 +246,25 @@ public:
         rigidBodySystem.addJoint(rrhinge);
     }
 
+    static void createServoTest(RigidBodySystem& rigidBodySystem)
+    {
+        rigidBodySystem.clear();
+        polyscope::removeAllStructures();
+
+        std::cout << "Loading servo test scenario." << std::endl;
+
+        RigidBody* bot = new RigidBody(1.0f, new Box({ 0.4f, 2.0f, 0.4f }), createBox({ 0.4f, 2.0f, 0.4f }));
+        bot->fixed = true;
+        RigidBody* top = new RigidBody(1.0f, new Box({ 0.4f, 2.0f, 0.4f }), createBox({ 0.4f, 2.0f, 0.4f }));
+        top->x = { 0.0f, 2.0f, 0.0f };
+
+        Hinge* h = new Hinge(bot, top, { 0.0f, 1.0f, 0.0f }, Eigen::Quaternionf::Identity(),
+            { 0.0f, -1.0f, 0.0f }, Eigen::Quaternionf::Identity());
+        h->setControl(kServo);
+        h->setTargetAngle(0.0f);
+
+        rigidBodySystem.addBody(bot);
+        rigidBodySystem.addBody(top);
+        rigidBodySystem.addJoint(h);
+    }
 };

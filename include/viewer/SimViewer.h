@@ -23,7 +23,6 @@ class RigidBody;
 class RigidBodyState;
 class RigidBodySystemState;
 
-
 class SimViewer 
 {
 public:
@@ -40,11 +39,12 @@ private:
     void createSwingingBox();
     void createCylinderOnPlane();
     void createCarScene();
+    void createServoScene();
 
     void draw();
     void drawGUI();
 
-    void preStep(std::vector<RigidBody*>&);
+    void preStep(RigidBodySystem& _rigidBodySystem);
 
 private:
 
@@ -59,5 +59,6 @@ private:
     bool m_drawConstraints;             // enable constraint viz
     float m_dynamicsTime;               // Compute time for the dynamics step (in ms)
     std::unique_ptr<RigidBodySystemState> m_resetState;
+    float m_targetTheta;
 
 };

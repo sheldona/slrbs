@@ -69,7 +69,7 @@ void RigidBodySystem::step(float dt)
 
     if( m_preStepFunc )
     {
-        m_preStepFunc(m_bodies);
+        m_preStepFunc(*this);
     }
 
     m_collisionDetect->clear();

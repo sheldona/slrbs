@@ -15,8 +15,16 @@ public:
 
     virtual void computeJacobian() override;
 
+    virtual void setControl(eControlType _controlType);
+
+    virtual eControlType getControl() const { return m_controlType; }
+
+    virtual void setTargetAngle(float _theta);
+
 protected:
     // Default constructor (hidden).
     Hinge();
+
+    float m_theta;
 
 };

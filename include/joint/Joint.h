@@ -8,6 +8,8 @@ class RigidBody;
 
 enum eConstraintType { kContact = 0, kSpherical, kHinge };
 
+enum eControlType { kFree = 0, kServo };
+
 // Joint class.
 //
 class Joint
@@ -46,5 +48,7 @@ protected:
 
     // Default constructor (hidden).
     Joint();
+
+    eControlType m_controlType;
 
 };

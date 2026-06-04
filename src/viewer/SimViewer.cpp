@@ -110,7 +110,7 @@ namespace
 }
 
 SimViewer::SimViewer() :
-    m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f),
+    m_dt(0.01f), m_subSteps(1), m_dynamicsTime(0.0f), m_targetTheta(0.0f),
     m_paused(true), m_stepOnce(false),
     m_enableCollisions(true), m_enableScreenshots(false),
     m_drawContacts(true), m_drawConstraints(true),
@@ -223,7 +223,11 @@ void SimViewer::drawGUI()
     if (ImGui::Button("Create car scene")) {
         createCarScene();
     }
+    if (ImGui::Button("Create servo scene")) {
+        createServoScene();
+    }
 
+    ImGui::SliderFloat("Time step", &m_targetTheta, -3.14f, 3.14f, "%.2f");
     ImGui::Text("Step time: %3.3f ms", m_dynamicsTime);
 
 }
@@ -315,7 +319,22 @@ void SimViewer::createCarScene()
     polyscope::resetScreenshotIndex();
 }
 
-void SimViewer::preStep(std::vector<RigidBody*>& _bodies)
+void SimViewer::createServoScene()
 {
-    // do something useful here?
+    Scenarios::createServoTest(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
+#include "joint/Hinge.h"
+
+void SimViewer::preStep(RigidBodySystem& _rigidBodySystem)
+{
+    const std::vector<Joint*>& joints = _rigidBodySystem.getJoints();
+    if ( joints.size() > 0 && joints[0]->getType() == kHinge )
+    {
+        Hinge* h = dynamic_cast<Hinge*>(joints[0]);
+        h->setTargetAngle(m_targetTheta);
+    }
 }
