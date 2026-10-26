@@ -38,17 +38,19 @@ private:
     void createMarbleBox();
     void createSphereOnBox();
     void createSwingingBox();
+    void createSwingingBoxesDistance();
     void createCylinderOnPlane();
     void createCarScene();
 
     void draw();
     void drawGUI();
 
-    void preStep(std::vector<RigidBody*>&);
+    void preStep(RigidBodySystem*);
 
 private:
 
     // Simulation parameters
+    int m_frame;
     float m_dt;                         // Time step parameter.
     int m_subSteps;
     bool m_paused;                      // Pause the simulation.

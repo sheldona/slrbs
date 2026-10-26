@@ -114,7 +114,7 @@ SimViewer::SimViewer() :
     m_paused(true), m_stepOnce(false),
     m_enableCollisions(true), m_enableScreenshots(false),
     m_drawContacts(true), m_drawConstraints(true),
-    m_resetState()
+    m_resetState(), m_frame(0)
 {
     m_resetState = std::make_unique<RigidBodySystemState>(*m_rigidBodySystem);
     reset();
@@ -129,6 +129,7 @@ void SimViewer::reset()
     std::cout << " ---- Reset ----- " << std::endl;
     m_resetState->restore(*m_rigidBodySystem);
     m_dynamicsTime = 0.0f;
+    m_frame = 0;
 
     updateRigidBodyMeshes(*m_rigidBodySystem);
     polyscope::resetScreenshotIndex();
@@ -198,6 +199,8 @@ void SimViewer::drawGUI()
     ImGui::RadioButton("PGS", &(m_rigidBodySystem->solverId), 0);  ImGui::SameLine();
     ImGui::RadioButton("Conj. Gradient (NO CONTACT)", &(m_rigidBodySystem->solverId), 1);
     ImGui::RadioButton("Conj. Residual (NO CONTACT)", &(m_rigidBodySystem->solverId), 2);
+    ImGui::SliderFloat("Joint stiffness", &Joint::k, 0.0f, 1e5f, "%.0f");
+    ImGui::SliderFloat("Joint damping", &Joint::b, 0.0f, 1e4f, "%.0f");
     ImGui::PopItemWidth();
 
     if (ImGui::Checkbox("Enable collision detecton", &m_enableCollisions)) {
@@ -216,6 +219,9 @@ void SimViewer::drawGUI()
     }
     if (ImGui::Button("Swinging box")) {
         createSwingingBox();
+    }
+    if (ImGui::Button("Swinging box (distance)")) {
+        createSwingingBoxesDistance();
     }
     if (ImGui::Button("Cylinder on plane")) {
         createCylinderOnPlane();
@@ -243,6 +249,7 @@ void SimViewer::draw()
         for(int i = 0; i < m_subSteps; ++i)
         {
             m_rigidBodySystem->step(dt);
+            ++m_frame;
         }
         auto stop = std::chrono::high_resolution_clock::now();
 
@@ -299,6 +306,14 @@ void SimViewer::createSwingingBox()
     polyscope::resetScreenshotIndex();
 }
 
+void SimViewer::createSwingingBoxesDistance()
+{
+    Scenarios::createSwingingBoxesDistance(*m_rigidBodySystem);
+    m_resetState->save(*m_rigidBodySystem);
+    updateRigidBodyMeshes(*m_rigidBodySystem);
+    polyscope::resetScreenshotIndex();
+}
+
 void SimViewer::createCylinderOnPlane()
 {
     Scenarios::createCylinderOnPlane(*m_rigidBodySystem);
@@ -315,7 +330,7 @@ void SimViewer::createCarScene()
     polyscope::resetScreenshotIndex();
 }
 
-void SimViewer::preStep(std::vector<RigidBody*>& _bodies)
+void SimViewer::preStep(RigidBodySystem* _rigidBodySystem)
 {
     // do something useful here?
 }

@@ -27,7 +27,7 @@ namespace
     static inline void buildRHS(Joint* j, float h, Eigen::VectorXf& b)
     {
         const float hinv = 1.0f / h;
-        const float gamma = 0.3f;
+        const float gamma = (h * j->k) / (h * j->k + j->b);
         const int dim = j->lambda.rows();
         b = -hinv * gamma * j->phi;
 
@@ -141,7 +141,7 @@ void SolverBoxPGS::solve(float h)
         {
             Joint* j = joints[i];
             const int dim = j->lambda.rows();
-            const float eps = 1e-5f;
+            const float eps = 1.0f / (h*h*j->k + h*j->b);
 
             // Compute the diagonal term : Aii = J0*Minv0*J0^T + J1*Minv1*J1^T
             //

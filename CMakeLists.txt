@@ -47,10 +47,12 @@ set(rigidbody_SOURCE src/rigidbody/RigidBody.cpp
 
 set(joint_HEADERS include/joint/Joint.h
 				  include/joint/Hinge.h
-				  include/joint/Spherical.h )
+				  include/joint/Spherical.h
+                  include/joint/Spring.h )
 set(joint_SOURCE src/joint/Joint.cpp
 				 src/joint/Hinge.cpp
-			     src/joint/Spherical.cpp )
+			     src/joint/Spherical.cpp 
+			     src/joint/Spring.cpp )
 
 set(contact_HEADERS include/contact/Contact.h )
 set(contact_SOURCE src/contact/Contact.cpp )
